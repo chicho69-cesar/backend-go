@@ -55,7 +55,7 @@ func (h *AuthorHandler) HandleAuthors(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthorHandler) HandleAuthorByID(w http.ResponseWriter, r *http.Request) {
-	idParam := r.URL.Query().Get("id")
+	idParam := r.URL.Path[len("/authors/"):]
 	if idParam == "" {
 		http.Error(w, "El parámetro ID es requerido", http.StatusBadRequest)
 		return
