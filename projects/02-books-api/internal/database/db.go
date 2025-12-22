@@ -172,6 +172,9 @@ func GetMigrationSchema() string {
 			grace_days INTEGER DEFAULT 2
 		);
 
+		-- Delete default configuration rows to avoid duplicates
+		DELETE FROM configuration;
+
 		-- Insert default configuration
 		INSERT OR IGNORE INTO configuration (
 			student_loan_days,
