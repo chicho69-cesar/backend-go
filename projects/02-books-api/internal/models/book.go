@@ -1,24 +1,25 @@
 package models
 
 import (
-	"database/sql"
 	"time"
+
+	"github.com/chicho69-cesar/backend-go/books/internal/database"
 )
 
 type Book struct {
-	ID               int64          `json:"id"`
-	ISBN             string         `json:"isbn"`
-	Title            string         `json:"title"`
-	Subtitle         sql.NullString `json:"subtitle"`
-	Edition          sql.NullString `json:"edition"`
-	Language         sql.NullString `json:"language"`
-	PublicationYear  sql.NullInt64  `json:"publication_year"`
-	Pages            sql.NullInt64  `json:"pages"`
-	Synopsis         sql.NullString `json:"synopsis"`
-	PublisherID      sql.NullInt64  `json:"publisher_id"`
-	ShelfID          sql.NullInt64  `json:"shelf_id"`
-	Status           string         `json:"status"` // Available, Borrowed, Reserved, Maintenance
-	RegistrationDate time.Time      `json:"registration_date"`
+	ID               int64               `json:"id"`
+	ISBN             string              `json:"isbn"`
+	Title            string              `json:"title"`
+	Subtitle         database.NullString `json:"subtitle"`
+	Edition          database.NullString `json:"edition"`
+	Language         database.NullString `json:"language"`
+	PublicationYear  database.NullInt64  `json:"publication_year"`
+	Pages            database.NullInt64  `json:"pages"`
+	Synopsis         database.NullString `json:"synopsis"`
+	PublisherID      database.NullInt64  `json:"publisher_id"`
+	ShelfID          database.NullInt64  `json:"shelf_id"`
+	Status           string              `json:"status"` // Available, Borrowed, Reserved, Maintenance
+	RegistrationDate time.Time           `json:"registration_date"`
 }
 
 type BookAuthor struct {

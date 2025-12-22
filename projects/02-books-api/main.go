@@ -24,7 +24,6 @@ func main() {
 	defer db.Close()
 
 	schema := database.GetMigrationSchema()
-	fmt.Println(schema)
 	_, err = db.Exec(schema)
 	if err != nil {
 		fmt.Println("Error al ejecutar las migraciones:", err)
@@ -36,8 +35,8 @@ func main() {
 	authorService := services.NewAuthorService(authorStore)
 	authorHandler := transport.NewAuthorHandler(authorService)
 
-	http.HandleFunc("/author", authorHandler.HandleAuthors)
-	http.HandleFunc("/author/", authorHandler.HandleAuthorByID)
+	http.HandleFunc("/authors", authorHandler.HandleAuthors)
+	http.HandleFunc("/authors/", authorHandler.HandleAuthorByID)
 
 	fmt.Println("Servidor escuchando en el puerto 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
