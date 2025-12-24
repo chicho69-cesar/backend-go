@@ -1,0 +1,57 @@
+package transport
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/chicho69-cesar/backend-go/books/internal/services"
+)
+
+type ConfigurationHandler struct {
+	configService *services.ConfigurationService
+}
+
+func NewConfigurationHandler(configService *services.ConfigurationService) *ConfigurationHandler {
+	return &ConfigurationHandler{
+		configService: configService,
+	}
+}
+
+func (h *ConfigurationHandler) HandleConfiguration(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+		case http.MethodGet:
+			config, err := h.configService.GetConfiguration()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(config)
+
+		case http.MethodPatch:
+			var updates map[string]interface{}
+			err := json.NewDecoder(r.Body).Decode(&updates)
+			if err != nil {
+				http.Error(w, "Datos de configuración inválidos", http.StatusBadRequest)
+				return
+			}
+
+			if len(updates) == 0 {
+				http.Error(w, "No se proporcionaron campos para actualizar", http.StatusBadRequest)
+				return
+			}
+
+			updatedConfig, err := h.configService.UpdateConfiguration(updates)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(updatedConfig)
+
+		default:
+			http.Error(w, "Unavailable method", http.StatusMethodNotAllowed)
+	}
+}
