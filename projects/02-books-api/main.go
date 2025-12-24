@@ -35,8 +35,13 @@ func main() {
 	authorService := services.NewAuthorService(authorStore)
 	authorHandler := transport.NewAuthorHandler(authorService)
 
+	configStore := store.NewConfigurationStore(db)
+	configService := services.NewConfigurationService(configStore)
+	configHandler := transport.NewConfigurationHandler(configService)
+
 	http.HandleFunc("/authors", authorHandler.HandleAuthors)
 	http.HandleFunc("/authors/", authorHandler.HandleAuthorByID)
+	http.HandleFunc("/configuration", configHandler.HandleConfiguration)
 
 	fmt.Println("Servidor escuchando en el puerto 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
