@@ -6,22 +6,22 @@ import (
 	"github.com/chicho69-cesar/backend-go/books/internal/models"
 )
 
-type ConfigStore interface {
+type IConfigStore interface {
 	GetCurrent() (*models.Configuration, error)
 	Update(config *models.Configuration) (*models.Configuration, error)
 }
 
-type configurationStore struct {
+type ConfigurationStore struct {
 	db *sql.DB
 }
 
-func NewConfigurationStore(db *sql.DB) ConfigStore {
-	return &configurationStore{
+func NewConfigurationStore(db *sql.DB) IConfigStore {
+	return &ConfigurationStore{
 		db: db,
 	}
 }
 
-func (s *configurationStore) GetCurrent() (*models.Configuration, error) {
+func (s *ConfigurationStore) GetCurrent() (*models.Configuration, error) {
 	query := `SELECT id, student_loan_days, teacher_loan_days, max_renewals, max_books_per_loan, fine_per_day, reservation_days, grace_days FROM configuration LIMIT 1`
 
 	config := &models.Configuration{}
@@ -46,7 +46,7 @@ func (s *configurationStore) GetCurrent() (*models.Configuration, error) {
 	return config, nil
 }
 
-func (s *configurationStore) Update(config *models.Configuration) (*models.Configuration, error) {
+func (s *ConfigurationStore) Update(config *models.Configuration) (*models.Configuration, error) {
 	current, err := s.GetCurrent()
 	if err != nil {
 		return nil, err

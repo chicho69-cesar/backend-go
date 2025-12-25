@@ -11,10 +11,10 @@ import (
 )
 
 type AuthorService struct {
-	authorStore store.AuthStore
+	authorStore store.IAuthorStore
 }
 
-func NewAuthorService(authorStore store.AuthStore) *AuthorService {
+func NewAuthorService(authorStore store.IAuthorStore) *AuthorService {
 	return &AuthorService{
 		authorStore: authorStore,
 	}

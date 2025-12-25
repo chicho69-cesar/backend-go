@@ -8,10 +8,10 @@ import (
 )
 
 type ConfigurationService struct {
-	configStore store.ConfigStore
+	configStore store.IConfigStore
 }
 
-func NewConfigurationService(configStore store.ConfigStore) *ConfigurationService {
+func NewConfigurationService(configStore store.IConfigStore) *ConfigurationService {
 	return &ConfigurationService{
 		configStore: configStore,
 	}

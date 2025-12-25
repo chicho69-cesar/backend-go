@@ -6,7 +6,7 @@ import (
 	"github.com/chicho69-cesar/backend-go/books/internal/models"
 )
 
-type AuthStore interface {
+type IAuthorStore interface {
 	GetAll() ([]*models.Author, error)
 	GetByID(id int64) (*models.Author, error)
 	Create(author *models.Author) (*models.Author, error)
@@ -14,17 +14,17 @@ type AuthStore interface {
 	Delete(id int64) error
 }
 
-type authorStore struct {
+type AuthorStore struct {
 	db *sql.DB
 }
 
-func NewAuthorStore(db *sql.DB) AuthStore {
-	return &authorStore{
+func NewAuthorStore(db *sql.DB) IAuthorStore {
+	return &AuthorStore{
 		db: db,
 	}
 }
 
-func (s *authorStore) GetAll() ([]*models.Author, error) {
+func (s *AuthorStore) GetAll() ([]*models.Author, error) {
 	query := `SELECT id, first_name, last_name, biography, nationality FROM authors`
 
 	rows, err := s.db.Query(query)
@@ -56,7 +56,7 @@ func (s *authorStore) GetAll() ([]*models.Author, error) {
 	return authors, nil
 }
 
-func (s *authorStore) GetByID(id int64) (*models.Author, error) {
+func (s *AuthorStore) GetByID(id int64) (*models.Author, error) {
 	query := `SELECT id, first_name, last_name, biography, nationality FROM authors WHERE id = ?`
 
 	author := &models.Author{}
@@ -72,7 +72,7 @@ func (s *authorStore) GetByID(id int64) (*models.Author, error) {
 	return author, nil
 }
 
-func (s *authorStore) Create(author *models.Author) (*models.Author, error) {
+func (s *AuthorStore) Create(author *models.Author) (*models.Author, error) {
 	query := `INSERT INTO authors (first_name, last_name, biography, nationality) VALUES (?, ?, ?, ?)`
 
 	result, err := s.db.Exec(query, author.FirstName, author.LastName, author.Biography, author.Nationality)
@@ -90,7 +90,7 @@ func (s *authorStore) Create(author *models.Author) (*models.Author, error) {
 	return author, nil
 }
 
-func (s *authorStore) Update(id int64, author *models.Author) (*models.Author, error) {
+func (s *AuthorStore) Update(id int64, author *models.Author) (*models.Author, error) {
 	query := `UPDATE authors SET first_name = ?, last_name = ?, biography = ?, nationality = ? WHERE id = ?`
 
 	_, err := s.db.Exec(query, author.FirstName, author.LastName, author.Biography, author.Nationality, id)
@@ -103,7 +103,7 @@ func (s *authorStore) Update(id int64, author *models.Author) (*models.Author, e
 	return author, nil
 }
 
-func (s *authorStore) Delete(id int64) error {
+func (s *AuthorStore) Delete(id int64) error {
 	query := `DELETE FROM authors WHERE id = ?`
 
 	_, err := s.db.Exec(query, id)
