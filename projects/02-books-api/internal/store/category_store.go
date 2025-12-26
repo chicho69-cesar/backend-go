@@ -88,7 +88,6 @@ func (s *CategoryStore) Create(category *models.Category) (*models.Category, err
 	}
 
 	category.ID = id
-
 	return category, nil
 }
 
@@ -101,7 +100,6 @@ func (s *CategoryStore) Update(id int64, category *models.Category) (*models.Cat
 	}
 
 	category.ID = id
-
 	return category, nil
 }
 

@@ -17,6 +17,8 @@ func NewConfigurationHandler(configService *services.ConfigurationService) *Conf
 	}
 }
 
+// GET /configuration - Obtener la configuración actual
+// PATCH /configuration - Actualizar la configuración
 func (h *ConfigurationHandler) HandleConfiguration(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 		case http.MethodGet:

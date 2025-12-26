@@ -63,7 +63,13 @@ func (s *AuthorStore) GetByID(id int64) (*models.Author, error) {
 
 	err := s.db.
 		QueryRow(query, id).
-		Scan(&author.ID, &author.FirstName, &author.LastName, &author.Biography, &author.Nationality)
+		Scan(
+			&author.ID,
+			&author.FirstName,
+			&author.LastName,
+			&author.Biography,
+			&author.Nationality,
+		)
 
 	if err != nil {
 		return nil, err
@@ -86,7 +92,6 @@ func (s *AuthorStore) Create(author *models.Author) (*models.Author, error) {
 	}
 
 	author.ID = id
-
 	return author, nil
 }
 
@@ -99,7 +104,6 @@ func (s *AuthorStore) Update(id int64, author *models.Author) (*models.Author, e
 	}
 
 	author.ID = id
-
 	return author, nil
 }
 

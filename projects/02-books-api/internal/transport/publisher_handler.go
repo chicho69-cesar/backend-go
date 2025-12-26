@@ -19,6 +19,8 @@ func NewPublisherHandler(publisherService *services.PublisherService) *Publisher
 	}
 }
 
+// GET /publishers - Obtener todas las editoriales
+// POST /publishers - Crear una nueva editorial
 func (h *PublisherHandler) HandlePublishers(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 		case http.MethodGet:
@@ -54,6 +56,9 @@ func (h *PublisherHandler) HandlePublishers(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// GET /publishers/{id} - Obtener una editorial por ID
+// PUT /publishers/{id} - Actualizar una editorial por ID
+// DELETE /publishers/{id} - Eliminar una editorial por ID
 func (h *PublisherHandler) HandlePublisherByID(w http.ResponseWriter, r *http.Request) {
 	idParam := r.URL.Path[len("/publishers/"):]
 	if idParam == "" {

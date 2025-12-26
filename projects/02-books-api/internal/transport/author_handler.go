@@ -19,6 +19,8 @@ func NewAuthorHandler(authorService *services.AuthorService) *AuthorHandler {
 	}
 }
 
+// GET /authors - Obtener todos los autores
+// POST /authors - Crear un nuevo autor
 func (h *AuthorHandler) HandleAuthors(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 		case http.MethodGet:
@@ -54,6 +56,9 @@ func (h *AuthorHandler) HandleAuthors(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GET /authors/{id} - Obtener un autor por ID
+// PUT /authors/{id} - Actualizar un autor por ID
+// DELETE /authors/{id} - Eliminar un autor por ID
 func (h *AuthorHandler) HandleAuthorByID(w http.ResponseWriter, r *http.Request) {
 	idParam := r.URL.Path[len("/authors/"):]
 	if idParam == "" {

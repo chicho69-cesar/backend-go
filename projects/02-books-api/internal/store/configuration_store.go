@@ -52,14 +52,11 @@ func (s *ConfigurationStore) Update(config *models.Configuration) (*models.Confi
 		return nil, err
 	}
 
-	query := `UPDATE configuration SET 
-		student_loan_days = ?, 
-		teacher_loan_days = ?, 
-		max_renewals = ?, 
-		max_books_per_loan = ?, 
-		fine_per_day = ?, 
-		reservation_days = ?, 
-		grace_days = ? 
+	query := `
+		UPDATE configuration 
+		SET 
+			student_loan_days = ?, teacher_loan_days = ?, max_renewals = ?, 
+			max_books_per_loan = ?, fine_per_day = ?, reservation_days = ?, grace_days = ? 
 		WHERE id = ?`
 
 	_, err = s.db.Exec(
@@ -79,6 +76,5 @@ func (s *ConfigurationStore) Update(config *models.Configuration) (*models.Confi
 	}
 
 	config.ID = current.ID
-
 	return config, nil
 }

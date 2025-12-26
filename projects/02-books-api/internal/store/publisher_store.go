@@ -88,7 +88,6 @@ func (s *PublisherStore) Create(publisher *models.Publisher) (*models.Publisher,
 	}
 
 	publisher.ID = id
-
 	return publisher, nil
 }
 
@@ -101,7 +100,6 @@ func (s *PublisherStore) Update(id int64, publisher *models.Publisher) (*models.
 	}
 
 	publisher.ID = id
-
 	return publisher, nil
 }
 

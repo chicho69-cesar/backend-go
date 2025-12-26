@@ -19,6 +19,8 @@ func NewCategoryHandler(categoryService *services.CategoryService) *CategoryHand
 	}
 }
 
+// GET /categories - Obtener todas las categorías
+// POST /categories - Crear una nueva categoría
 func (h *CategoryHandler) HandleCategories(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 		case http.MethodGet:
@@ -54,6 +56,9 @@ func (h *CategoryHandler) HandleCategories(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// GET /categories/{id} - Obtener una categoría por ID
+// PUT /categories/{id} - Actualizar una categoría por ID
+// DELETE /categories/{id} - Eliminar una categoría por ID
 func (h *CategoryHandler) HandleCategoryByID(w http.ResponseWriter, r *http.Request) {
 	idParam := r.URL.Path[len("/categories/"):]
 	if idParam == "" {
