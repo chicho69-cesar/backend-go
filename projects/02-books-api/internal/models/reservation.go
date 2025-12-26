@@ -11,4 +11,5 @@ type Reservation struct {
 	Status          string    `json:"status"` // Pending, Active, Cancelled, Expired
 	Priority        int       `json:"priority"`
 	Notified        bool      `json:"notified"`
+	LibraryID       int64     `json:"library_id"`
 }

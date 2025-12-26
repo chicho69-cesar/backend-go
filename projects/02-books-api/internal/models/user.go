@@ -18,4 +18,5 @@ type User struct {
 	UserType         string              `json:"user_type"` // Student, Teacher, Staff, External
 	Status           string              `json:"status"`    // Active, Suspended, Inactive
 	RegistrationDate time.Time           `json:"registration_date"`
+	LibraryID        int64               `json:"library_id"`
 }

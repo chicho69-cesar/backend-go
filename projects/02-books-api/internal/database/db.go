@@ -4,6 +4,22 @@ func GetMigrationSchema() string {
 	query := `
 		-- migrations/schema.sql
 
+		-- Libraries Table
+		CREATE TABLE IF NOT EXISTS libraries (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			address TEXT,
+			city TEXT,
+			state TEXT,
+			zip_code TEXT,
+			country TEXT,
+			phone TEXT,
+			email TEXT,
+			website TEXT,
+			username TEXT UNIQUE NOT NULL,
+			password TEXT NOT NULL
+		);
+
 		-- Users table
 		CREATE TABLE IF NOT EXISTS users (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,7 +32,9 @@ func GetMigrationSchema() string {
 			address TEXT,
 			user_type TEXT NOT NULL,
 			status TEXT NOT NULL DEFAULT 'active',
-			registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			library_id INTEGER NOT NULL,
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Authors table
@@ -25,21 +43,27 @@ func GetMigrationSchema() string {
 			first_name TEXT NOT NULL,
 			last_name TEXT NOT NULL,
 			biography TEXT,
-			nationality TEXT
+			nationality TEXT,
+			library_id INTEGER NOT NULL,
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Publishers table
 		CREATE TABLE IF NOT EXISTS publishers (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT UNIQUE NOT NULL,
-			country TEXT
+			country TEXT,
+			library_id INTEGER NOT NULL,
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Categories table
 		CREATE TABLE IF NOT EXISTS categories (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT UNIQUE NOT NULL,
-			description TEXT
+			description TEXT,
+			library_id INTEGER NOT NULL,
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Library zones table
@@ -48,7 +72,9 @@ func GetMigrationSchema() string {
 			code TEXT UNIQUE NOT NULL,
 			name TEXT NOT NULL,
 			description TEXT,
-			floor INTEGER NOT NULL
+			floor INTEGER NOT NULL,
+			library_id INTEGER NOT NULL,
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Shelves table
@@ -57,7 +83,9 @@ func GetMigrationSchema() string {
 			code TEXT NOT NULL,
 			zone_id INTEGER NOT NULL,
 			description TEXT,
+			library_id INTEGER NOT NULL,
 			FOREIGN KEY (zone_id) REFERENCES library_zones(id),
+			FOREIGN KEY (library_id) REFERENCES libraries(id),
 			UNIQUE(code, zone_id)
 		);
 
@@ -76,8 +104,10 @@ func GetMigrationSchema() string {
 			shelf_id INTEGER,
 			status TEXT NOT NULL DEFAULT 'available',
 			registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			library_id INTEGER NOT NULL,
 			FOREIGN KEY (publisher_id) REFERENCES publishers(id),
-			FOREIGN KEY (shelf_id) REFERENCES shelves(id)
+			FOREIGN KEY (shelf_id) REFERENCES shelves(id),
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Book authors junction table
@@ -85,18 +115,22 @@ func GetMigrationSchema() string {
 			book_id INTEGER NOT NULL,
 			author_id INTEGER NOT NULL,
 			position INTEGER DEFAULT 1,
+			library_id INTEGER NOT NULL,
 			PRIMARY KEY (book_id, author_id),
 			FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
-			FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE CASCADE
+			FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE CASCADE,
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Book categories junction table
 		CREATE TABLE IF NOT EXISTS book_categories (
 			book_id INTEGER NOT NULL,
 			category_id INTEGER NOT NULL,
+			library_id INTEGER NOT NULL,
 			PRIMARY KEY (book_id, category_id),
 			FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
-			FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+			FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Copies table
@@ -109,7 +143,9 @@ func GetMigrationSchema() string {
 			acquisition_date TIMESTAMP,
 			purchase_price REAL,
 			notes TEXT,
-			FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+			library_id INTEGER NOT NULL,
+			FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Loans table
@@ -126,9 +162,11 @@ func GetMigrationSchema() string {
 			renewals INTEGER DEFAULT 0,
 			notes TEXT,
 			librarian_id INTEGER,
+			library_id INTEGER NOT NULL,
 			FOREIGN KEY (user_id) REFERENCES users(id),
 			FOREIGN KEY (copy_id) REFERENCES copies(id),
-			FOREIGN KEY (librarian_id) REFERENCES users(id)
+			FOREIGN KEY (librarian_id) REFERENCES users(id),
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Reservations table
@@ -141,8 +179,10 @@ func GetMigrationSchema() string {
 			status TEXT NOT NULL DEFAULT 'pending',
 			priority INTEGER DEFAULT 1,
 			notified BOOLEAN DEFAULT 0,
+			library_id INTEGER NOT NULL,
 			FOREIGN KEY (user_id) REFERENCES users(id),
-			FOREIGN KEY (book_id) REFERENCES books(id)
+			FOREIGN KEY (book_id) REFERENCES books(id),
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Fines table
@@ -156,8 +196,10 @@ func GetMigrationSchema() string {
 			payment_date TIMESTAMP,
 			status TEXT NOT NULL DEFAULT 'pending',
 			notes TEXT,
+			library_id INTEGER NOT NULL,
 			FOREIGN KEY (user_id) REFERENCES users(id),
-			FOREIGN KEY (loan_id) REFERENCES loans(id)
+			FOREIGN KEY (loan_id) REFERENCES loans(id),
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
 		-- Configuration table
@@ -169,24 +211,14 @@ func GetMigrationSchema() string {
 			max_books_per_loan INTEGER DEFAULT 5,
 			fine_per_day REAL DEFAULT 0.50,
 			reservation_days INTEGER DEFAULT 3,
-			grace_days INTEGER DEFAULT 2
+			grace_days INTEGER DEFAULT 2,
+			library_id INTEGER NOT NULL,
+			FOREIGN KEY (library_id) REFERENCES libraries(id)
 		);
 
-		-- Delete default configuration rows to avoid duplicates
-		DELETE FROM configuration;
-
-		-- Insert default configuration
-		INSERT OR IGNORE INTO configuration (
-			student_loan_days,
-			teacher_loan_days,
-			max_renewals,
-			max_books_per_loan,
-			fine_per_day,
-			reservation_days,
-			grace_days
-		) VALUES (15, 30, 2, 5, 0.50, 3, 2);
-
 		-- Create indexes for better performance
+		CREATE INDEX IF NOT EXISTS idx_libraries_name ON libraries(name);
+		CREATE INDEX IF NOT EXISTS idx_libraries_username ON libraries(username);
 		CREATE INDEX IF NOT EXISTS idx_users_code ON users(code);
 		CREATE INDEX IF NOT EXISTS idx_users_dni ON users(dni);
 		CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);

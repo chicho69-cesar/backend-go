@@ -20,6 +20,7 @@ type Book struct {
 	ShelfID          database.NullInt64  `json:"shelf_id"`
 	Status           string              `json:"status"` // Available, Borrowed, Reserved, Maintenance
 	RegistrationDate time.Time           `json:"registration_date"`
+	LibraryID        int64               `json:"library_id"`
 }
 
 type BookAuthor struct {

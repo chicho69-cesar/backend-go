@@ -11,4 +11,5 @@ type Copy struct {
 	AcquisitionDate database.NullTime    `json:"acquisition_date"`
 	PurchasePrice   database.NullFloat64 `json:"purchase_price"`
 	Notes           database.NullString  `json:"notes"`
+	LibraryID       int64                `json:"library_id"`
 }

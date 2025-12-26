@@ -9,4 +9,5 @@ type Configuration struct {
 	FinePerDay      float64 `json:"fine_per_day"`
 	ReservationDays int     `json:"reservation_days"`
 	GraceDays       int     `json:"grace_days"`
+	LibraryID       int64   `json:"library_id"`
 }

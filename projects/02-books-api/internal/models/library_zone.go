@@ -8,4 +8,5 @@ type LibraryZone struct {
 	Name        string              `json:"name"`
 	Description database.NullString `json:"description"`
 	Floor       int                 `json:"floor"`
+	LibraryID   int64               `json:"library_id"`
 }

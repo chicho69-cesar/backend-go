@@ -8,4 +8,5 @@ type Author struct {
 	LastName    string              `json:"last_name"`
 	Biography   database.NullString `json:"biography"`
 	Nationality database.NullString `json:"nationality"`
+	LibraryID   int64               `json:"library_id"`
 }

@@ -19,4 +19,5 @@ type Loan struct {
 	Renewals    int                 `json:"renewals"`
 	Notes       database.NullString `json:"notes"`
 	LibrarianID database.NullInt64  `json:"librarian_id"`
+	LibraryID   int64               `json:"library_id"`
 }

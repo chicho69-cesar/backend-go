@@ -16,4 +16,5 @@ type Fine struct {
 	PaymentDate   database.NullTime   `json:"payment_date"`
 	Status        string              `json:"status"` // Pending, Paid, Waived
 	Notes         database.NullString `json:"notes"`
+	LibraryID     int64               `json:"library_id"`
 }
