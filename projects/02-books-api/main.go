@@ -9,6 +9,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/chicho69-cesar/backend-go/books/internal/database"
+	"github.com/chicho69-cesar/backend-go/books/internal/logger"
 	"github.com/chicho69-cesar/backend-go/books/internal/services"
 	"github.com/chicho69-cesar/backend-go/books/internal/store"
 	"github.com/chicho69-cesar/backend-go/books/internal/transport"
@@ -30,6 +31,14 @@ func main() {
 		log.Fatal("Error: ", err)
 		return
 	}
+
+	apiLogger, err := logger.NewLogger("./api.log")
+	if err != nil {
+		fmt.Println("Error al inicializar el logger:", err)
+		log.Fatal("Error: ", err)
+		return
+	}
+	defer apiLogger.Close()
 
 	authorStore := store.NewAuthorStore(db)
 	authorService := services.NewAuthorService(authorStore)
@@ -79,35 +88,122 @@ func main() {
 	fineService := services.NewFineService(fineStore, userStore, loanStore)
 	fineHandler := transport.NewFineHandler(fineService)
 
-	http.HandleFunc("/authors", authorHandler.HandleAuthors)
-	http.HandleFunc("/authors/", authorHandler.HandleAuthorByID)
-	http.HandleFunc("/books", bookHandler.HandleBooks)
-	http.HandleFunc("/books/", bookHandler.HandleBookByID)
-	http.HandleFunc("/categories", categoryHandler.HandleCategories)
-	http.HandleFunc("/categories/", categoryHandler.HandleCategoryByID)
-	http.HandleFunc("/configuration", configHandler.HandleConfiguration)
-	http.HandleFunc("/copies", copyHandler.HandleCopies)
-	http.HandleFunc("/copies/", copyHandler.HandleCopyByID)
-	http.HandleFunc("/fines", fineHandler.HandleFines)
-	http.HandleFunc("/fines/", fineHandler.HandleFineByID)
-	http.HandleFunc("/fines/pay/", fineHandler.HandleFinePay)
-	http.HandleFunc("/fines/waive/", fineHandler.HandleFineWaive)
-	http.HandleFunc("/loans", loanHandler.HandleLoans)
-	http.HandleFunc("/loans/", loanHandler.HandleLoanByID)
-	http.HandleFunc("/loans/renew/", loanHandler.HandleLoanRenew)
-	http.HandleFunc("/loans/return/", loanHandler.HandleLoanReturn)
-	http.HandleFunc("/publishers", publisherHandler.HandlePublishers)
-	http.HandleFunc("/publishers/", publisherHandler.HandlePublisherByID)
-	http.HandleFunc("/reservations", reservationHandler.HandleReservations)
-	http.HandleFunc("/reservations/", reservationHandler.HandleReservationByID)
-	http.HandleFunc("/reservations/cancel/", reservationHandler.HandleReservationCancel)
-	http.HandleFunc("/reservations/process/", reservationHandler.HandleReservationProcess)
-	http.HandleFunc("/shelves", shelfHandler.HandleShelves)
-	http.HandleFunc("/shelves/", shelfHandler.HandleShelfByID)
-	http.HandleFunc("/users", userHandler.HandleUsers)
-	http.HandleFunc("/users/", userHandler.HandleUserByID)
-	http.HandleFunc("/zones", zoneHandler.HandleZones)
-	http.HandleFunc("/zones/", zoneHandler.HandleZoneByID)
+	http.HandleFunc(
+		"/authors",
+		apiLogger.Middleware(authorHandler.HandleAuthors),
+	)
+	http.HandleFunc(
+		"/authors/",
+		apiLogger.Middleware(authorHandler.HandleAuthorByID),
+	)
+	http.HandleFunc(
+		"/books",
+		apiLogger.Middleware(bookHandler.HandleBooks),
+	)
+	http.HandleFunc(
+		"/books/",
+		apiLogger.Middleware(bookHandler.HandleBookByID),
+	)
+	http.HandleFunc(
+		"/categories",
+		apiLogger.Middleware(categoryHandler.HandleCategories),
+	)
+	http.HandleFunc(
+		"/categories/",
+		apiLogger.Middleware(categoryHandler.HandleCategoryByID),
+	)
+	http.HandleFunc(
+		"/configuration",
+		apiLogger.Middleware(configHandler.HandleConfiguration),
+	)
+	http.HandleFunc(
+		"/copies",
+		apiLogger.Middleware(copyHandler.HandleCopies),
+	)
+	http.HandleFunc(
+		"/copies/",
+		apiLogger.Middleware(copyHandler.HandleCopyByID),
+	)
+	http.HandleFunc(
+		"/fines",
+		apiLogger.Middleware(fineHandler.HandleFines),
+	)
+	http.HandleFunc(
+		"/fines/",
+		apiLogger.Middleware(fineHandler.HandleFineByID),
+	)
+	http.HandleFunc(
+		"/fines/pay/",
+		apiLogger.Middleware(fineHandler.HandleFinePay),
+	)
+	http.HandleFunc(
+		"/fines/waive/",
+		apiLogger.Middleware(fineHandler.HandleFineWaive),
+	)
+	http.HandleFunc(
+		"/loans",
+		apiLogger.Middleware(loanHandler.HandleLoans),
+	)
+	http.HandleFunc(
+		"/loans/",
+		apiLogger.Middleware(loanHandler.HandleLoanByID),
+	)
+	http.HandleFunc(
+		"/loans/renew/",
+		apiLogger.Middleware(loanHandler.HandleLoanRenew),
+	)
+	http.HandleFunc(
+		"/loans/return/",
+		apiLogger.Middleware(loanHandler.HandleLoanReturn),
+	)
+	http.HandleFunc(
+		"/publishers",
+		apiLogger.Middleware(publisherHandler.HandlePublishers),
+	)
+	http.HandleFunc(
+		"/publishers/",
+		apiLogger.Middleware(publisherHandler.HandlePublisherByID),
+	)
+	http.HandleFunc(
+		"/reservations",
+		apiLogger.Middleware(reservationHandler.HandleReservations),
+	)
+	http.HandleFunc(
+		"/reservations/",
+		apiLogger.Middleware(reservationHandler.HandleReservationByID),
+	)
+	http.HandleFunc(
+		"/reservations/cancel/",
+		apiLogger.Middleware(reservationHandler.HandleReservationCancel),
+	)
+	http.HandleFunc(
+		"/reservations/process/",
+		apiLogger.Middleware(reservationHandler.HandleReservationProcess),
+	)
+	http.HandleFunc(
+		"/shelves",
+		apiLogger.Middleware(shelfHandler.HandleShelves),
+	)
+	http.HandleFunc(
+		"/shelves/",
+		apiLogger.Middleware(shelfHandler.HandleShelfByID),
+	)
+	http.HandleFunc(
+		"/users",
+		apiLogger.Middleware(userHandler.HandleUsers),
+	)
+	http.HandleFunc(
+		"/users/",
+		apiLogger.Middleware(userHandler.HandleUserByID),
+	)
+	http.HandleFunc(
+		"/zones",
+		apiLogger.Middleware(zoneHandler.HandleZones),
+	)
+	http.HandleFunc(
+		"/zones/",
+		apiLogger.Middleware(zoneHandler.HandleZoneByID),
+	)
 
 	fmt.Println("Servidor escuchando en el puerto 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
