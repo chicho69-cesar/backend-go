@@ -20,16 +20,16 @@ func NewCategoryService(categoryStore store.ICategoryStore) *CategoryService {
 	}
 }
 
-func (s *CategoryService) GetAllCategories() ([]*models.Category, error) {
-	return s.categoryStore.GetAll()
+func (s *CategoryService) GetAllCategories(libraryID int64) ([]*models.Category, error) {
+	return s.categoryStore.GetAll(libraryID)
 }
 
-func (s *CategoryService) GetCategoryByID(id int64) (*models.Category, error) {
+func (s *CategoryService) GetCategoryByID(libraryID, id int64) (*models.Category, error) {
 	if id <= 0 {
 		return nil, errors.New("El id de la categoría es invalido")
 	}
 
-	category, err := s.categoryStore.GetByID(id)
+	category, err := s.categoryStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener la categoría con ID %d: %w", id, err)
 	}
@@ -37,18 +37,19 @@ func (s *CategoryService) GetCategoryByID(id int64) (*models.Category, error) {
 	return category, nil
 }
 
-func (s *CategoryService) CreateCategory(category *models.Category) (*models.Category, error) {
+func (s *CategoryService) CreateCategory(libraryID int64, category *models.Category) (*models.Category, error) {
 	if err := validations.ValidateCategory(category); err != nil {
 		return nil, fmt.Errorf("Validación fallida: %w", err)
 	}
 
+	category.LibraryID = libraryID
 	category.Name = strings.TrimSpace(category.Name)
 
 	if category.Description.Valid {
 		category.Description.String = strings.TrimSpace(category.Description.String)
 	}
 
-	createdCategory, err := s.categoryStore.Create(category)
+	createdCategory, err := s.categoryStore.Create(libraryID, category)
 	if err != nil {
 		return nil, fmt.Errorf("Error al crear la categoría: %w", err)
 	}
@@ -56,12 +57,12 @@ func (s *CategoryService) CreateCategory(category *models.Category) (*models.Cat
 	return createdCategory, nil
 }
 
-func (s *CategoryService) UpdateCategory(id int64, category *models.Category) (*models.Category, error) {
+func (s *CategoryService) UpdateCategory(libraryID, id int64, category *models.Category) (*models.Category, error) {
 	if id <= 0 {
 		return nil, errors.New("El id de la categoría es invalido")
 	}
 
-	existingCategory, err := s.categoryStore.GetByID(id)
+	existingCategory, err := s.categoryStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener la categoría con ID %d: %w", id, err)
 	}
@@ -80,7 +81,7 @@ func (s *CategoryService) UpdateCategory(id int64, category *models.Category) (*
 		category.Description.String = strings.TrimSpace(category.Description.String)
 	}
 
-	updatedCategory, err := s.categoryStore.Update(id, category)
+	updatedCategory, err := s.categoryStore.Update(libraryID, id, category)
 	if err != nil {
 		return nil, fmt.Errorf("Error al actualizar la categoría con ID %d: %w", id, err)
 	}
@@ -88,12 +89,12 @@ func (s *CategoryService) UpdateCategory(id int64, category *models.Category) (*
 	return updatedCategory, nil
 }
 
-func (s *CategoryService) DeleteCategory(id int64) error {
+func (s *CategoryService) DeleteCategory(libraryID, id int64) error {
 	if id <= 0 {
 		return errors.New("El id de la categoría es invalido")
 	}
 
-	existingCategory, err := s.categoryStore.GetByID(id)
+	existingCategory, err := s.categoryStore.GetByID(libraryID, id)
 	if err != nil {
 		return fmt.Errorf("Error al obtener la categoría con ID %d: %w", id, err)
 	}
@@ -102,7 +103,7 @@ func (s *CategoryService) DeleteCategory(id int64) error {
 		return fmt.Errorf("La categoría con ID %d no existe", id)
 	}
 
-	if err := s.categoryStore.Delete(id); err != nil {
+	if err := s.categoryStore.Delete(libraryID, id); err != nil {
 		return fmt.Errorf("Error al eliminar la categoría con ID %d: %w", id, err)
 	}
 

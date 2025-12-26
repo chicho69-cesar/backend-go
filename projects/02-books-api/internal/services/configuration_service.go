@@ -17,8 +17,8 @@ func NewConfigurationService(configStore store.IConfigStore) *ConfigurationServi
 	}
 }
 
-func (s *ConfigurationService) GetConfiguration() (*models.Configuration, error) {
-	config, err := s.configStore.GetCurrent()
+func (s *ConfigurationService) GetConfiguration(libraryID int64) (*models.Configuration, error) {
+	config, err := s.configStore.GetByLibraryID(libraryID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener la configuración: %w", err)
 	}
@@ -26,8 +26,8 @@ func (s *ConfigurationService) GetConfiguration() (*models.Configuration, error)
 	return config, nil
 }
 
-func (s *ConfigurationService) UpdateConfiguration(updates map[string]any) (*models.Configuration, error) {
-	currentConfig, err := s.configStore.GetCurrent()
+func (s *ConfigurationService) UpdateConfiguration(libraryID int64, updates map[string]any) (*models.Configuration, error) {
+	currentConfig, err := s.configStore.GetByLibraryID(libraryID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener la configuración actual: %w", err)
 	}
@@ -74,7 +74,7 @@ func (s *ConfigurationService) UpdateConfiguration(updates map[string]any) (*mod
 		}
 	}
 
-	updatedConfig, err := s.configStore.Update(currentConfig)
+	updatedConfig, err := s.configStore.Update(libraryID, currentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Error al actualizar la configuración: %w", err)
 	}

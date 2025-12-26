@@ -58,19 +58,19 @@ func NewFineService(fineStore store.IFineStore, userStore store.IUserStore, loan
 	}
 }
 
-func (s *LoanService) GetAll() ([]*models.Loan, error) {
-	return s.loanStore.GetAll()
+func (s *LoanService) GetAll(libraryID int64) ([]*models.Loan, error) {
+	return s.loanStore.GetAll(libraryID)
 }
 
-func (s *LoanService) GetByID(id int64) (*models.Loan, error) {
-	return s.loanStore.GetByID(id)
+func (s *LoanService) GetByID(libraryID, id int64) (*models.Loan, error) {
+	return s.loanStore.GetByID(libraryID, id)
 }
 
-func (s *LoanService) GetByCode(code string) (*models.Loan, error) {
-	return s.loanStore.GetByCode(code)
+func (s *LoanService) GetByCode(libraryID int64, code string) (*models.Loan, error) {
+	return s.loanStore.GetByCode(libraryID, code)
 }
 
-func (s *LoanService) GetLoansFiltered(filter store.LoanFilter) ([]*models.Loan, error) {
+func (s *LoanService) GetLoansFiltered(libraryID int64, filter store.LoanFilter) ([]*models.Loan, error) {
 	if filter.Code != "" {
 		filter.Code = strings.TrimSpace(strings.ToUpper(filter.Code))
 	}
@@ -79,7 +79,7 @@ func (s *LoanService) GetLoansFiltered(filter store.LoanFilter) ([]*models.Loan,
 		filter.Status = strings.TrimSpace(filter.Status)
 	}
 
-	loans, err := s.loanStore.GetLoansFiltered(filter)
+	loans, err := s.loanStore.GetLoansFiltered(libraryID, filter)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener los préstamos filtrados: %w", err)
 	}
@@ -87,12 +87,12 @@ func (s *LoanService) GetLoansFiltered(filter store.LoanFilter) ([]*models.Loan,
 	return loans, nil
 }
 
-func (s *LoanService) CreateLoan(loan *models.Loan) (*models.Loan, error) {
+func (s *LoanService) CreateLoan(libraryID int64, loan *models.Loan) (*models.Loan, error) {
 	if err := validations.ValidateLoan(loan); err != nil {
 		return nil, err
 	}
 
-	user, err := s.userStore.GetByID(loan.UserID)
+	user, err := s.userStore.GetByID(libraryID, loan.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al verificar usuario: %v", err)
 	}
@@ -105,7 +105,7 @@ func (s *LoanService) CreateLoan(loan *models.Loan) (*models.Loan, error) {
 		return nil, fmt.Errorf("El usuario no está activo")
 	}
 
-	copy, err := s.copyStore.GetByID(loan.CopyID)
+	copy, err := s.copyStore.GetByID(libraryID, loan.CopyID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al verificar copia: %v", err)
 	}
@@ -122,7 +122,7 @@ func (s *LoanService) CreateLoan(loan *models.Loan) (*models.Loan, error) {
 		return nil, fmt.Errorf("La copia no está en condiciones para préstamo")
 	}
 
-	overdueLoans, err := s.loanStore.GetLoansFiltered(store.LoanFilter{Overdue: true})
+	overdueLoans, err := s.loanStore.GetLoansFiltered(libraryID, store.LoanFilter{Overdue: true})
 	if err != nil {
 		return nil, fmt.Errorf("Error al verificar préstamos vencidos: %v", err)
 	}
@@ -134,7 +134,7 @@ func (s *LoanService) CreateLoan(loan *models.Loan) (*models.Loan, error) {
 	}
 
 	userID := loan.UserID
-	pendingFines, err := s.fineStore.GetFinesFiltered(store.FineFilter{UserID: &userID, Pending: true})
+	pendingFines, err := s.fineStore.GetFinesFiltered(libraryID, store.FineFilter{UserID: &userID, Pending: true})
 	if err != nil {
 		return nil, fmt.Errorf("Error al verificar multas pendientes: %v", err)
 	}
@@ -143,7 +143,7 @@ func (s *LoanService) CreateLoan(loan *models.Loan) (*models.Loan, error) {
 		return nil, fmt.Errorf("El usuario tiene multas pendientes, debe pagarlas antes de realizar un préstamo")
 	}
 
-	existingLoan, err := s.loanStore.GetByCode(loan.LoanCode)
+	existingLoan, err := s.loanStore.GetByCode(libraryID, loan.LoanCode)
 	if err != nil {
 		return nil, fmt.Errorf("Error al verificar código de préstamo: %v", err)
 	}
@@ -152,13 +152,14 @@ func (s *LoanService) CreateLoan(loan *models.Loan) (*models.Loan, error) {
 		return nil, fmt.Errorf("El código de préstamo %s ya existe", loan.LoanCode)
 	}
 
-	createdLoan, err := s.loanStore.Create(loan)
+	loan.LibraryID = libraryID
+	createdLoan, err := s.loanStore.Create(libraryID, loan)
 	if err != nil {
 		return nil, fmt.Errorf("Error al crear préstamo: %v", err)
 	}
 
 	copy.Status = "Loaned"
-	_, err = s.copyStore.Update(copy.ID, copy)
+	_, err = s.copyStore.Update(libraryID, copy.ID, copy)
 	if err != nil {
 		return nil, fmt.Errorf("Error al actualizar estado de copia: %v", err)
 	}
@@ -166,8 +167,8 @@ func (s *LoanService) CreateLoan(loan *models.Loan) (*models.Loan, error) {
 	return createdLoan, nil
 }
 
-func (s *LoanService) RenewLoan(id int64, librarianID *int64) (*models.Loan, error) {
-	loan, err := s.loanStore.GetByID(id)
+func (s *LoanService) RenewLoan(libraryID, id int64, librarianID *int64) (*models.Loan, error) {
+	loan, err := s.loanStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener préstamo: %v", err)
 	}
@@ -181,7 +182,7 @@ func (s *LoanService) RenewLoan(id int64, librarianID *int64) (*models.Loan, err
 	}
 
 	userID := loan.UserID
-	pendingFines, err := s.fineStore.GetFinesFiltered(store.FineFilter{UserID: &userID, Pending: true})
+	pendingFines, err := s.fineStore.GetFinesFiltered(libraryID, store.FineFilter{UserID: &userID, Pending: true})
 	if err != nil {
 		return nil, fmt.Errorf("Error al verificar multas pendientes: %v", err)
 	}
@@ -198,7 +199,7 @@ func (s *LoanService) RenewLoan(id int64, librarianID *int64) (*models.Loan, err
 		loan.LibrarianID.Int64 = *librarianID
 	}
 
-	updatedLoan, err := s.loanStore.Update(id, loan)
+	updatedLoan, err := s.loanStore.Update(libraryID, id, loan)
 	if err != nil {
 		return nil, fmt.Errorf("Error al renovar préstamo: %v", err)
 	}
@@ -206,8 +207,8 @@ func (s *LoanService) RenewLoan(id int64, librarianID *int64) (*models.Loan, err
 	return updatedLoan, nil
 }
 
-func (s *LoanService) ReturnLoan(id int64, notes *string) (*models.Loan, error) {
-	loan, err := s.loanStore.GetByID(id)
+func (s *LoanService) ReturnLoan(libraryID, id int64, notes *string) (*models.Loan, error) {
+	loan, err := s.loanStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener préstamo: %v", err)
 	}
@@ -230,18 +231,18 @@ func (s *LoanService) ReturnLoan(id int64, notes *string) (*models.Loan, error) 
 		loan.Notes.String = *notes
 	}
 
-	updatedLoan, err := s.loanStore.Update(id, loan)
+	updatedLoan, err := s.loanStore.Update(libraryID, id, loan)
 	if err != nil {
 		return nil, fmt.Errorf("Error al actualizar préstamo: %v", err)
 	}
 
-	copy, err := s.copyStore.GetByID(loan.CopyID)
+	copy, err := s.copyStore.GetByID(libraryID, loan.CopyID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener copia: %v", err)
 	}
 
 	copy.Status = "Available"
-	_, err = s.copyStore.Update(copy.ID, copy)
+	_, err = s.copyStore.Update(libraryID, copy.ID, copy)
 	if err != nil {
 		return nil, fmt.Errorf("Error al actualizar estado de copia: %v", err)
 	}
@@ -252,6 +253,7 @@ func (s *LoanService) ReturnLoan(id int64, notes *string) (*models.Loan, error) 
 
 		if fineAmount > 0 {
 			fine := &models.Fine{
+				LibraryID:     libraryID,
 				UserID:        loan.UserID,
 				Reason:        fmt.Sprintf("Devolución tardía (%d días)", daysLate),
 				Amount:        fineAmount,
@@ -262,7 +264,7 @@ func (s *LoanService) ReturnLoan(id int64, notes *string) (*models.Loan, error) 
 			fine.LoanID.Valid = true
 			fine.LoanID.Int64 = loan.ID
 
-			_, err = s.fineStore.Create(fine)
+			_, err = s.fineStore.Create(libraryID, fine)
 			if err != nil {
 				fmt.Printf("Advertencia: Error al crear multa automática: %v\n", err)
 			}
@@ -272,12 +274,12 @@ func (s *LoanService) ReturnLoan(id int64, notes *string) (*models.Loan, error) 
 	return updatedLoan, nil
 }
 
-func (s *LoanService) Update(id int64, loan *models.Loan) (*models.Loan, error) {
+func (s *LoanService) Update(libraryID, id int64, loan *models.Loan) (*models.Loan, error) {
 	if err := validations.ValidateLoan(loan); err != nil {
 		return nil, err
 	}
 
-	existingLoan, err := s.loanStore.GetByID(id)
+	existingLoan, err := s.loanStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener préstamo: %v", err)
 	}
@@ -286,11 +288,11 @@ func (s *LoanService) Update(id int64, loan *models.Loan) (*models.Loan, error) 
 		return nil, fmt.Errorf("Préstamo con ID %d no encontrado", id)
 	}
 
-	return s.loanStore.Update(id, loan)
+	return s.loanStore.Update(libraryID, id, loan)
 }
 
-func (s *LoanService) Delete(id int64) error {
-	loan, err := s.loanStore.GetByID(id)
+func (s *LoanService) Delete(libraryID, id int64) error {
+	loan, err := s.loanStore.GetByID(libraryID, id)
 	if err != nil {
 		return fmt.Errorf("Error al obtener préstamo: %v", err)
 	}
@@ -299,23 +301,23 @@ func (s *LoanService) Delete(id int64) error {
 		return fmt.Errorf("Préstamo con ID %d no encontrado", id)
 	}
 
-	return s.loanStore.Delete(id)
+	return s.loanStore.Delete(libraryID, id)
 }
 
-func (s *ReservationService) GetAll() ([]*models.Reservation, error) {
-	return s.reservationStore.GetAll()
+func (s *ReservationService) GetAll(libraryID int64) ([]*models.Reservation, error) {
+	return s.reservationStore.GetAll(libraryID)
 }
 
-func (s *ReservationService) GetByID(id int64) (*models.Reservation, error) {
-	return s.reservationStore.GetByID(id)
+func (s *ReservationService) GetByID(libraryID, id int64) (*models.Reservation, error) {
+	return s.reservationStore.GetByID(libraryID, id)
 }
 
-func (s *ReservationService) GetReservationsFiltered(filter store.ReservationFilter) ([]*models.Reservation, error) {
+func (s *ReservationService) GetReservationsFiltered(libraryID int64, filter store.ReservationFilter) ([]*models.Reservation, error) {
 	if filter.Status != "" {
 		filter.Status = strings.TrimSpace(filter.Status)
 	}
 
-	reservations, err := s.reservationStore.GetReservationsFiltered(filter)
+	reservations, err := s.reservationStore.GetReservationsFiltered(libraryID, filter)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener las reservaciones filtradas: %w", err)
 	}
@@ -323,12 +325,12 @@ func (s *ReservationService) GetReservationsFiltered(filter store.ReservationFil
 	return reservations, nil
 }
 
-func (s *ReservationService) CreateReservation(reservation *models.Reservation) (*models.Reservation, error) {
+func (s *ReservationService) CreateReservation(libraryID int64, reservation *models.Reservation) (*models.Reservation, error) {
 	if err := validations.ValidateReservation(reservation); err != nil {
 		return nil, err
 	}
 
-	user, err := s.userStore.GetByID(reservation.UserID)
+	user, err := s.userStore.GetByID(libraryID, reservation.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al verificar usuario: %v", err)
 	}
@@ -341,7 +343,7 @@ func (s *ReservationService) CreateReservation(reservation *models.Reservation) 
 		return nil, fmt.Errorf("El usuario no está activo")
 	}
 
-	pendingFines, err := s.fineStore.GetFinesFiltered(store.FineFilter{
+	pendingFines, err := s.fineStore.GetFinesFiltered(libraryID, store.FineFilter{
 		UserID:  &reservation.UserID,
 		Pending: true,
 	})
@@ -350,7 +352,7 @@ func (s *ReservationService) CreateReservation(reservation *models.Reservation) 
 		return nil, fmt.Errorf("El usuario tiene %d multa(s) pendiente(s) y no puede hacer reservaciones", len(pendingFines))
 	}
 
-	book, err := s.bookStore.GetByID(reservation.BookID)
+	book, err := s.bookStore.GetByID(libraryID, reservation.BookID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al verificar libro: %v", err)
 	}
@@ -359,7 +361,7 @@ func (s *ReservationService) CreateReservation(reservation *models.Reservation) 
 		return nil, fmt.Errorf("El libro con ID %d no existe", reservation.BookID)
 	}
 
-	existingReservation, err := s.reservationStore.GetActiveByUserAndBook(reservation.UserID, reservation.BookID)
+	existingReservation, err := s.reservationStore.GetActiveByUserAndBook(libraryID, reservation.UserID, reservation.BookID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al verificar reservaciones existentes: %v", err)
 	}
@@ -369,7 +371,7 @@ func (s *ReservationService) CreateReservation(reservation *models.Reservation) 
 	}
 
 	bookID := reservation.BookID
-	copies, err := s.copyStore.GetCopiesFiltered(store.CopyFilter{BookID: &bookID})
+	copies, err := s.copyStore.GetCopiesFiltered(libraryID, store.CopyFilter{BookID: &bookID})
 	if err != nil {
 		return nil, fmt.Errorf("Error al verificar copias del libro: %v", err)
 	}
@@ -385,7 +387,8 @@ func (s *ReservationService) CreateReservation(reservation *models.Reservation) 
 		return nil, fmt.Errorf("Hay copias disponibles del libro, no es necesario realizar una reservación")
 	}
 
-	createdReservation, err := s.reservationStore.Create(reservation)
+	reservation.LibraryID = libraryID
+	createdReservation, err := s.reservationStore.Create(libraryID, reservation)
 	if err != nil {
 		return nil, fmt.Errorf("Error al crear reservación: %v", err)
 	}
@@ -393,8 +396,8 @@ func (s *ReservationService) CreateReservation(reservation *models.Reservation) 
 	return createdReservation, nil
 }
 
-func (s *ReservationService) CancelReservation(id int64) (*models.Reservation, error) {
-	reservation, err := s.reservationStore.GetByID(id)
+func (s *ReservationService) CancelReservation(libraryID, id int64) (*models.Reservation, error) {
+	reservation, err := s.reservationStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener reservación: %v", err)
 	}
@@ -409,7 +412,7 @@ func (s *ReservationService) CancelReservation(id int64) (*models.Reservation, e
 
 	reservation.Status = "Cancelled"
 
-	updatedReservation, err := s.reservationStore.Update(id, reservation)
+	updatedReservation, err := s.reservationStore.Update(libraryID, id, reservation)
 	if err != nil {
 		return nil, fmt.Errorf("Error al cancelar reservación: %v", err)
 	}
@@ -417,8 +420,8 @@ func (s *ReservationService) CancelReservation(id int64) (*models.Reservation, e
 	return updatedReservation, nil
 }
 
-func (s *ReservationService) ProcessReservation(id int64) (*models.Reservation, error) {
-	reservation, err := s.reservationStore.GetByID(id)
+func (s *ReservationService) ProcessReservation(libraryID, id int64) (*models.Reservation, error) {
+	reservation, err := s.reservationStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener reservación: %v", err)
 	}
@@ -433,7 +436,7 @@ func (s *ReservationService) ProcessReservation(id int64) (*models.Reservation, 
 
 	reservation.Status = "Completed"
 
-	updatedReservation, err := s.reservationStore.Update(id, reservation)
+	updatedReservation, err := s.reservationStore.Update(libraryID, id, reservation)
 	if err != nil {
 		return nil, fmt.Errorf("Error al procesar reservación: %v", err)
 	}
@@ -441,12 +444,12 @@ func (s *ReservationService) ProcessReservation(id int64) (*models.Reservation, 
 	return updatedReservation, nil
 }
 
-func (s *ReservationService) Update(id int64, reservation *models.Reservation) (*models.Reservation, error) {
+func (s *ReservationService) Update(libraryID, id int64, reservation *models.Reservation) (*models.Reservation, error) {
 	if err := validations.ValidateReservation(reservation); err != nil {
 		return nil, err
 	}
 
-	existingReservation, err := s.reservationStore.GetByID(id)
+	existingReservation, err := s.reservationStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener reservación: %v", err)
 	}
@@ -455,11 +458,11 @@ func (s *ReservationService) Update(id int64, reservation *models.Reservation) (
 		return nil, fmt.Errorf("Reservación con ID %d no encontrada", id)
 	}
 
-	return s.reservationStore.Update(id, reservation)
+	return s.reservationStore.Update(libraryID, id, reservation)
 }
 
-func (s *ReservationService) Delete(id int64) error {
-	reservation, err := s.reservationStore.GetByID(id)
+func (s *ReservationService) Delete(libraryID, id int64) error {
+	reservation, err := s.reservationStore.GetByID(libraryID, id)
 	if err != nil {
 		return fmt.Errorf("Error al obtener reservación: %v", err)
 	}
@@ -468,23 +471,23 @@ func (s *ReservationService) Delete(id int64) error {
 		return fmt.Errorf("Reservación con ID %d no encontrada", id)
 	}
 
-	return s.reservationStore.Delete(id)
+	return s.reservationStore.Delete(libraryID, id)
 }
 
-func (s *FineService) GetAll() ([]*models.Fine, error) {
-	return s.fineStore.GetAll()
+func (s *FineService) GetAll(libraryID int64) ([]*models.Fine, error) {
+	return s.fineStore.GetAll(libraryID)
 }
 
-func (s *FineService) GetByID(id int64) (*models.Fine, error) {
-	return s.fineStore.GetByID(id)
+func (s *FineService) GetByID(libraryID, id int64) (*models.Fine, error) {
+	return s.fineStore.GetByID(libraryID, id)
 }
 
-func (s *FineService) GetFinesFiltered(filter store.FineFilter) ([]*models.Fine, error) {
+func (s *FineService) GetFinesFiltered(libraryID int64, filter store.FineFilter) ([]*models.Fine, error) {
 	if filter.Status != "" {
 		filter.Status = strings.TrimSpace(filter.Status)
 	}
 
-	fines, err := s.fineStore.GetFinesFiltered(filter)
+	fines, err := s.fineStore.GetFinesFiltered(libraryID, filter)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener las multas filtradas: %w", err)
 	}
@@ -492,12 +495,12 @@ func (s *FineService) GetFinesFiltered(filter store.FineFilter) ([]*models.Fine,
 	return fines, nil
 }
 
-func (s *FineService) CreateFine(fine *models.Fine) (*models.Fine, error) {
+func (s *FineService) CreateFine(libraryID int64, fine *models.Fine) (*models.Fine, error) {
 	if err := validations.ValidateFine(fine); err != nil {
 		return nil, err
 	}
 
-	user, err := s.userStore.GetByID(fine.UserID)
+	user, err := s.userStore.GetByID(libraryID, fine.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al verificar usuario: %v", err)
 	}
@@ -507,7 +510,7 @@ func (s *FineService) CreateFine(fine *models.Fine) (*models.Fine, error) {
 	}
 
 	if fine.LoanID.Valid {
-		loan, err := s.loanStore.GetByID(fine.LoanID.Int64)
+		loan, err := s.loanStore.GetByID(libraryID, fine.LoanID.Int64)
 		if err != nil {
 			return nil, fmt.Errorf("Error al verificar préstamo: %v", err)
 		}
@@ -517,7 +520,8 @@ func (s *FineService) CreateFine(fine *models.Fine) (*models.Fine, error) {
 		}
 	}
 
-	createdFine, err := s.fineStore.Create(fine)
+	fine.LibraryID = libraryID
+	createdFine, err := s.fineStore.Create(libraryID, fine)
 	if err != nil {
 		return nil, fmt.Errorf("Error al crear multa: %v", err)
 	}
@@ -525,8 +529,8 @@ func (s *FineService) CreateFine(fine *models.Fine) (*models.Fine, error) {
 	return createdFine, nil
 }
 
-func (s *FineService) PayFine(id int64, notes *string) (*models.Fine, error) {
-	fine, err := s.fineStore.GetByID(id)
+func (s *FineService) PayFine(libraryID, id int64, notes *string) (*models.Fine, error) {
+	fine, err := s.fineStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener multa: %v", err)
 	}
@@ -549,7 +553,7 @@ func (s *FineService) PayFine(id int64, notes *string) (*models.Fine, error) {
 		fine.Notes.String = *notes
 	}
 
-	updatedFine, err := s.fineStore.Update(id, fine)
+	updatedFine, err := s.fineStore.Update(libraryID, id, fine)
 	if err != nil {
 		return nil, fmt.Errorf("Error al marcar multa como pagada: %v", err)
 	}
@@ -557,8 +561,8 @@ func (s *FineService) PayFine(id int64, notes *string) (*models.Fine, error) {
 	return updatedFine, nil
 }
 
-func (s *FineService) WaiveFine(id int64, notes *string) (*models.Fine, error) {
-	fine, err := s.fineStore.GetByID(id)
+func (s *FineService) WaiveFine(libraryID, id int64, notes *string) (*models.Fine, error) {
+	fine, err := s.fineStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener multa: %v", err)
 	}
@@ -578,7 +582,7 @@ func (s *FineService) WaiveFine(id int64, notes *string) (*models.Fine, error) {
 		fine.Notes.String = *notes
 	}
 
-	updatedFine, err := s.fineStore.Update(id, fine)
+	updatedFine, err := s.fineStore.Update(libraryID, id, fine)
 	if err != nil {
 		return nil, fmt.Errorf("Error al condonar multa: %v", err)
 	}
@@ -586,12 +590,12 @@ func (s *FineService) WaiveFine(id int64, notes *string) (*models.Fine, error) {
 	return updatedFine, nil
 }
 
-func (s *FineService) Update(id int64, fine *models.Fine) (*models.Fine, error) {
+func (s *FineService) Update(libraryID, id int64, fine *models.Fine) (*models.Fine, error) {
 	if err := validations.ValidateFine(fine); err != nil {
 		return nil, err
 	}
 
-	existingFine, err := s.fineStore.GetByID(id)
+	existingFine, err := s.fineStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener multa: %v", err)
 	}
@@ -600,11 +604,11 @@ func (s *FineService) Update(id int64, fine *models.Fine) (*models.Fine, error) 
 		return nil, fmt.Errorf("Multa con ID %d no encontrada", id)
 	}
 
-	return s.fineStore.Update(id, fine)
+	return s.fineStore.Update(libraryID, id, fine)
 }
 
-func (s *FineService) Delete(id int64) error {
-	fine, err := s.fineStore.GetByID(id)
+func (s *FineService) Delete(libraryID, id int64) error {
+	fine, err := s.fineStore.GetByID(libraryID, id)
 	if err != nil {
 		return fmt.Errorf("Error al obtener multa: %v", err)
 	}
@@ -613,5 +617,5 @@ func (s *FineService) Delete(id int64) error {
 		return fmt.Errorf("Multa con ID %d no encontrada", id)
 	}
 
-	return s.fineStore.Delete(id)
+	return s.fineStore.Delete(libraryID, id)
 }

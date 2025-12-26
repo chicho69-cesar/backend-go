@@ -162,8 +162,8 @@ func (s *LibraryService) DeleteLibrary(id int64) error {
 	return nil
 }
 
-func (s *LibraryZoneService) GetAllZones() ([]*models.LibraryZone, error) {
-	zones, err := s.zoneStore.GetAll()
+func (s *LibraryZoneService) GetAllZones(libraryID int64) ([]*models.LibraryZone, error) {
+	zones, err := s.zoneStore.GetAll(libraryID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener las zonas: %w", err)
 	}
@@ -171,12 +171,12 @@ func (s *LibraryZoneService) GetAllZones() ([]*models.LibraryZone, error) {
 	return zones, nil
 }
 
-func (s *LibraryZoneService) GetZoneByID(id int64) (*models.LibraryZone, error) {
+func (s *LibraryZoneService) GetZoneByID(libraryID, id int64) (*models.LibraryZone, error) {
 	if id <= 0 {
 		return nil, errors.New("El ID de la zona es inválido")
 	}
 
-	zone, err := s.zoneStore.GetByID(id)
+	zone, err := s.zoneStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener la zona con ID %d: %w", id, err)
 	}
@@ -184,7 +184,7 @@ func (s *LibraryZoneService) GetZoneByID(id int64) (*models.LibraryZone, error) 
 	return zone, nil
 }
 
-func (s *LibraryZoneService) GetZonesFiltered(filter store.LibraryZoneFilter) ([]*models.LibraryZone, error) {
+func (s *LibraryZoneService) GetZonesFiltered(libraryID int64, filter store.LibraryZoneFilter) ([]*models.LibraryZone, error) {
 	if filter.Code != "" {
 		filter.Code = strings.TrimSpace(strings.ToUpper(filter.Code))
 	}
@@ -195,7 +195,7 @@ func (s *LibraryZoneService) GetZonesFiltered(filter store.LibraryZoneFilter) ([
 		}
 	}
 
-	zones, err := s.zoneStore.GetZonesFiltered(filter)
+	zones, err := s.zoneStore.GetZonesFiltered(libraryID, filter)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener las zonas filtradas: %w", err)
 	}
@@ -203,16 +203,17 @@ func (s *LibraryZoneService) GetZonesFiltered(filter store.LibraryZoneFilter) ([
 	return zones, nil
 }
 
-func (s *LibraryZoneService) CreateZone(zone *models.LibraryZone) (*models.LibraryZone, error) {
+func (s *LibraryZoneService) CreateZone(libraryID int64, zone *models.LibraryZone) (*models.LibraryZone, error) {
 	if err := validations.ValidateLibraryZone(zone); err != nil {
 		return nil, fmt.Errorf("Validación fallida: %w", err)
 	}
 
-	existingZone, _ := s.zoneStore.GetByCode(zone.Code)
+	existingZone, _ := s.zoneStore.GetByCode(libraryID, zone.Code)
 	if existingZone != nil {
 		return nil, fmt.Errorf("Ya existe una zona con el código %s", zone.Code)
 	}
 
+	zone.LibraryID = libraryID
 	zone.Code = strings.TrimSpace(strings.ToUpper(zone.Code))
 	zone.Name = strings.TrimSpace(zone.Name)
 
@@ -220,7 +221,7 @@ func (s *LibraryZoneService) CreateZone(zone *models.LibraryZone) (*models.Libra
 		zone.Description.String = strings.TrimSpace(zone.Description.String)
 	}
 
-	createdZone, err := s.zoneStore.Create(zone)
+	createdZone, err := s.zoneStore.Create(libraryID, zone)
 	if err != nil {
 		return nil, fmt.Errorf("Error al crear la zona: %w", err)
 	}
@@ -228,12 +229,12 @@ func (s *LibraryZoneService) CreateZone(zone *models.LibraryZone) (*models.Libra
 	return createdZone, nil
 }
 
-func (s *LibraryZoneService) UpdateZone(id int64, zone *models.LibraryZone) (*models.LibraryZone, error) {
+func (s *LibraryZoneService) UpdateZone(libraryID, id int64, zone *models.LibraryZone) (*models.LibraryZone, error) {
 	if id <= 0 {
 		return nil, errors.New("El ID de la zona es inválido")
 	}
 
-	existingZone, err := s.zoneStore.GetByID(id)
+	existingZone, err := s.zoneStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("La zona con ID %d no existe: %w", id, err)
 	}
@@ -246,7 +247,7 @@ func (s *LibraryZoneService) UpdateZone(id int64, zone *models.LibraryZone) (*mo
 		return nil, fmt.Errorf("Validación fallida: %w", err)
 	}
 
-	zoneWithCode, _ := s.zoneStore.GetByCode(zone.Code)
+	zoneWithCode, _ := s.zoneStore.GetByCode(libraryID, zone.Code)
 	if zoneWithCode != nil && zoneWithCode.ID != id {
 		return nil, fmt.Errorf("Ya existe otra zona con el código %s", zone.Code)
 	}
@@ -258,7 +259,7 @@ func (s *LibraryZoneService) UpdateZone(id int64, zone *models.LibraryZone) (*mo
 		zone.Description.String = strings.TrimSpace(zone.Description.String)
 	}
 
-	updatedZone, err := s.zoneStore.Update(id, zone)
+	updatedZone, err := s.zoneStore.Update(libraryID, id, zone)
 	if err != nil {
 		return nil, fmt.Errorf("Error al actualizar la zona con ID %d: %w", id, err)
 	}
@@ -266,12 +267,12 @@ func (s *LibraryZoneService) UpdateZone(id int64, zone *models.LibraryZone) (*mo
 	return updatedZone, nil
 }
 
-func (s *LibraryZoneService) DeleteZone(id int64) error {
+func (s *LibraryZoneService) DeleteZone(libraryID, id int64) error {
 	if id <= 0 {
 		return errors.New("El ID de la zona es inválido")
 	}
 
-	existingZone, err := s.zoneStore.GetByID(id)
+	existingZone, err := s.zoneStore.GetByID(libraryID, id)
 	if err != nil {
 		return fmt.Errorf("La zona con ID %d no existe: %w", id, err)
 	}
@@ -280,15 +281,15 @@ func (s *LibraryZoneService) DeleteZone(id int64) error {
 		return fmt.Errorf("La zona con ID %d no fue encontrada", id)
 	}
 
-	if err := s.zoneStore.Delete(id); err != nil {
+	if err := s.zoneStore.Delete(libraryID, id); err != nil {
 		return fmt.Errorf("Error al eliminar la zona con ID %d: %w", id, err)
 	}
 
 	return nil
 }
 
-func (s *ShelfService) GetAllShelves() ([]*models.Shelf, error) {
-	shelves, err := s.shelfStore.GetAll()
+func (s *ShelfService) GetAllShelves(libraryID int64) ([]*models.Shelf, error) {
+	shelves, err := s.shelfStore.GetAll(libraryID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener los estantes: %w", err)
 	}
@@ -296,12 +297,12 @@ func (s *ShelfService) GetAllShelves() ([]*models.Shelf, error) {
 	return shelves, nil
 }
 
-func (s *ShelfService) GetShelfByID(id int64) (*models.Shelf, error) {
+func (s *ShelfService) GetShelfByID(libraryID, id int64) (*models.Shelf, error) {
 	if id <= 0 {
 		return nil, errors.New("El ID del estante es inválido")
 	}
 
-	shelf, err := s.shelfStore.GetByID(id)
+	shelf, err := s.shelfStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener el estante con ID %d: %w", id, err)
 	}
@@ -309,7 +310,7 @@ func (s *ShelfService) GetShelfByID(id int64) (*models.Shelf, error) {
 	return shelf, nil
 }
 
-func (s *ShelfService) GetShelvesFiltered(filter store.ShelfFilter) ([]*models.Shelf, error) {
+func (s *ShelfService) GetShelvesFiltered(libraryID int64, filter store.ShelfFilter) ([]*models.Shelf, error) {
 	if filter.Code != "" {
 		filter.Code = strings.TrimSpace(strings.ToUpper(filter.Code))
 	}
@@ -319,13 +320,13 @@ func (s *ShelfService) GetShelvesFiltered(filter store.ShelfFilter) ([]*models.S
 			return nil, errors.New("El ID de la zona es inválido")
 		}
 
-		_, err := s.zoneStore.GetByID(*filter.ZoneID)
+		_, err := s.zoneStore.GetByID(libraryID, *filter.ZoneID)
 		if err != nil {
 			return nil, fmt.Errorf("La zona con ID %d no existe: %w", *filter.ZoneID, err)
 		}
 	}
 
-	shelves, err := s.shelfStore.GetShelvesFiltered(filter)
+	shelves, err := s.shelfStore.GetShelvesFiltered(libraryID, filter)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener los estantes filtrados: %w", err)
 	}
@@ -333,28 +334,29 @@ func (s *ShelfService) GetShelvesFiltered(filter store.ShelfFilter) ([]*models.S
 	return shelves, nil
 }
 
-func (s *ShelfService) CreateShelf(shelf *models.Shelf) (*models.Shelf, error) {
+func (s *ShelfService) CreateShelf(libraryID int64, shelf *models.Shelf) (*models.Shelf, error) {
 	if err := validations.ValidateShelf(shelf); err != nil {
 		return nil, fmt.Errorf("Validación fallida: %w", err)
 	}
 
-	_, err := s.zoneStore.GetByID(shelf.ZoneID)
+	_, err := s.zoneStore.GetByID(libraryID, shelf.ZoneID)
 	if err != nil {
 		return nil, fmt.Errorf("La zona con ID %d no existe: %w", shelf.ZoneID, err)
 	}
 
-	existingShelf, _ := s.shelfStore.GetByCode(shelf.Code)
+	existingShelf, _ := s.shelfStore.GetByCode(libraryID, shelf.Code)
 	if existingShelf != nil {
 		return nil, fmt.Errorf("Ya existe un estante con el código %s", shelf.Code)
 	}
 
+	shelf.LibraryID = libraryID
 	shelf.Code = strings.TrimSpace(strings.ToUpper(shelf.Code))
 
 	if shelf.Description.Valid {
 		shelf.Description.String = strings.TrimSpace(shelf.Description.String)
 	}
 
-	createdShelf, err := s.shelfStore.Create(shelf)
+	createdShelf, err := s.shelfStore.Create(libraryID, shelf)
 	if err != nil {
 		return nil, fmt.Errorf("Error al crear el estante: %w", err)
 	}
@@ -362,12 +364,12 @@ func (s *ShelfService) CreateShelf(shelf *models.Shelf) (*models.Shelf, error) {
 	return createdShelf, nil
 }
 
-func (s *ShelfService) UpdateShelf(id int64, shelf *models.Shelf) (*models.Shelf, error) {
+func (s *ShelfService) UpdateShelf(libraryID, id int64, shelf *models.Shelf) (*models.Shelf, error) {
 	if id <= 0 {
 		return nil, errors.New("El ID del estante es inválido")
 	}
 
-	existingShelf, err := s.shelfStore.GetByID(id)
+	existingShelf, err := s.shelfStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("El estante con ID %d no existe: %w", id, err)
 	}
@@ -380,12 +382,12 @@ func (s *ShelfService) UpdateShelf(id int64, shelf *models.Shelf) (*models.Shelf
 		return nil, fmt.Errorf("Validación fallida: %w", err)
 	}
 
-	_, err = s.zoneStore.GetByID(shelf.ZoneID)
+	_, err = s.zoneStore.GetByID(libraryID, shelf.ZoneID)
 	if err != nil {
 		return nil, fmt.Errorf("La zona con ID %d no existe: %w", shelf.ZoneID, err)
 	}
 
-	shelfWithCode, _ := s.shelfStore.GetByCode(shelf.Code)
+	shelfWithCode, _ := s.shelfStore.GetByCode(libraryID, shelf.Code)
 	if shelfWithCode != nil && shelfWithCode.ID != id {
 		return nil, fmt.Errorf("Ya existe otro estante con el código %s", shelf.Code)
 	}
@@ -396,7 +398,7 @@ func (s *ShelfService) UpdateShelf(id int64, shelf *models.Shelf) (*models.Shelf
 		shelf.Description.String = strings.TrimSpace(shelf.Description.String)
 	}
 
-	updatedShelf, err := s.shelfStore.Update(id, shelf)
+	updatedShelf, err := s.shelfStore.Update(libraryID, id, shelf)
 	if err != nil {
 		return nil, fmt.Errorf("Error al actualizar el estante con ID %d: %w", id, err)
 	}
@@ -404,12 +406,12 @@ func (s *ShelfService) UpdateShelf(id int64, shelf *models.Shelf) (*models.Shelf
 	return updatedShelf, nil
 }
 
-func (s *ShelfService) DeleteShelf(id int64) error {
+func (s *ShelfService) DeleteShelf(libraryID, id int64) error {
 	if id <= 0 {
 		return errors.New("El ID del estante es inválido")
 	}
 
-	existingShelf, err := s.shelfStore.GetByID(id)
+	existingShelf, err := s.shelfStore.GetByID(libraryID, id)
 	if err != nil {
 		return fmt.Errorf("El estante con ID %d no existe: %w", id, err)
 	}
@@ -418,15 +420,15 @@ func (s *ShelfService) DeleteShelf(id int64) error {
 		return fmt.Errorf("El estante con ID %d no fue encontrado", id)
 	}
 
-	if err := s.shelfStore.Delete(id); err != nil {
+	if err := s.shelfStore.Delete(libraryID, id); err != nil {
 		return fmt.Errorf("Error al eliminar el estante con ID %d: %w", id, err)
 	}
 
 	return nil
 }
 
-func (s *CopyService) GetAllCopies() ([]*models.Copy, error) {
-	copies, err := s.copyStore.GetAll()
+func (s *CopyService) GetAllCopies(libraryID int64) ([]*models.Copy, error) {
+	copies, err := s.copyStore.GetAll(libraryID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener las copias: %w", err)
 	}
@@ -434,12 +436,12 @@ func (s *CopyService) GetAllCopies() ([]*models.Copy, error) {
 	return copies, nil
 }
 
-func (s *CopyService) GetCopyByID(id int64) (*models.Copy, error) {
+func (s *CopyService) GetCopyByID(libraryID, id int64) (*models.Copy, error) {
 	if id <= 0 {
 		return nil, errors.New("El ID de la copia es inválido")
 	}
 
-	copy, err := s.copyStore.GetByID(id)
+	copy, err := s.copyStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener la copia con ID %d: %w", id, err)
 	}
@@ -447,7 +449,7 @@ func (s *CopyService) GetCopyByID(id int64) (*models.Copy, error) {
 	return copy, nil
 }
 
-func (s *CopyService) GetCopiesFiltered(filter store.CopyFilter) ([]*models.Copy, error) {
+func (s *CopyService) GetCopiesFiltered(libraryID int64, filter store.CopyFilter) ([]*models.Copy, error) {
 	if filter.Code != "" {
 		filter.Code = strings.TrimSpace(strings.ToUpper(filter.Code))
 	}
@@ -457,7 +459,7 @@ func (s *CopyService) GetCopiesFiltered(filter store.CopyFilter) ([]*models.Copy
 			return nil, errors.New("El ID del libro es inválido")
 		}
 
-		_, err := s.bookStore.GetByID(*filter.BookID)
+		_, err := s.bookStore.GetByID(libraryID, *filter.BookID)
 		if err != nil {
 			return nil, fmt.Errorf("El libro con ID %d no existe: %w", *filter.BookID, err)
 		}
@@ -471,7 +473,7 @@ func (s *CopyService) GetCopiesFiltered(filter store.CopyFilter) ([]*models.Copy
 		filter.Condition = strings.TrimSpace(filter.Condition)
 	}
 
-	copies, err := s.copyStore.GetCopiesFiltered(filter)
+	copies, err := s.copyStore.GetCopiesFiltered(libraryID, filter)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener las copias filtradas: %w", err)
 	}
@@ -479,21 +481,22 @@ func (s *CopyService) GetCopiesFiltered(filter store.CopyFilter) ([]*models.Copy
 	return copies, nil
 }
 
-func (s *CopyService) CreateCopy(copy *models.Copy) (*models.Copy, error) {
+func (s *CopyService) CreateCopy(libraryID int64, copy *models.Copy) (*models.Copy, error) {
 	if err := validations.ValidateCopy(copy); err != nil {
 		return nil, fmt.Errorf("Validación fallida: %w", err)
 	}
 
-	_, err := s.bookStore.GetByID(copy.BookID)
+	_, err := s.bookStore.GetByID(libraryID, copy.BookID)
 	if err != nil {
 		return nil, fmt.Errorf("El libro con ID %d no existe: %w", copy.BookID, err)
 	}
 
-	existingCopy, _ := s.copyStore.GetByCode(copy.Code)
+	existingCopy, _ := s.copyStore.GetByCode(libraryID, copy.Code)
 	if existingCopy != nil {
 		return nil, fmt.Errorf("Ya existe una copia con el código %s", copy.Code)
 	}
 
+	copy.LibraryID = libraryID
 	copy.Code = strings.TrimSpace(strings.ToUpper(copy.Code))
 
 	if copy.Notes.Valid {
@@ -505,7 +508,7 @@ func (s *CopyService) CreateCopy(copy *models.Copy) (*models.Copy, error) {
 		copy.AcquisitionDate.Valid = true
 	}
 
-	createdCopy, err := s.copyStore.Create(copy)
+	createdCopy, err := s.copyStore.Create(libraryID, copy)
 	if err != nil {
 		return nil, fmt.Errorf("Error al crear la copia: %w", err)
 	}
@@ -513,12 +516,12 @@ func (s *CopyService) CreateCopy(copy *models.Copy) (*models.Copy, error) {
 	return createdCopy, nil
 }
 
-func (s *CopyService) UpdateCopy(id int64, copy *models.Copy) (*models.Copy, error) {
+func (s *CopyService) UpdateCopy(libraryID, id int64, copy *models.Copy) (*models.Copy, error) {
 	if id <= 0 {
 		return nil, errors.New("El ID de la copia es inválido")
 	}
 
-	existingCopy, err := s.copyStore.GetByID(id)
+	existingCopy, err := s.copyStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("La copia con ID %d no existe: %w", id, err)
 	}
@@ -531,18 +534,18 @@ func (s *CopyService) UpdateCopy(id int64, copy *models.Copy) (*models.Copy, err
 		return nil, fmt.Errorf("Validación fallida: %w", err)
 	}
 
-	_, err = s.bookStore.GetByID(copy.BookID)
+	_, err = s.bookStore.GetByID(libraryID, copy.BookID)
 	if err != nil {
 		return nil, fmt.Errorf("El libro con ID %d no existe: %w", copy.BookID, err)
 	}
 
-	copyWithCode, _ := s.copyStore.GetByCode(copy.Code)
+	copyWithCode, _ := s.copyStore.GetByCode(libraryID, copy.Code)
 	if copyWithCode != nil && copyWithCode.ID != id {
 		return nil, fmt.Errorf("Ya existe otra copia con el código %s", copy.Code)
 	}
 
 	if copy.Status != "Borrowed" && existingCopy.Status == "Borrowed" {
-		activeLoans, err := s.loanStore.GetLoansFiltered(store.LoanFilter{
+		activeLoans, err := s.loanStore.GetLoansFiltered(libraryID, store.LoanFilter{
 			CopyID: &id,
 			Status: "Active",
 		})
@@ -557,7 +560,7 @@ func (s *CopyService) UpdateCopy(id int64, copy *models.Copy) (*models.Copy, err
 		copy.Notes.String = strings.TrimSpace(copy.Notes.String)
 	}
 
-	updatedCopy, err := s.copyStore.Update(id, copy)
+	updatedCopy, err := s.copyStore.Update(libraryID, id, copy)
 	if err != nil {
 		return nil, fmt.Errorf("Error al actualizar la copia con ID %d: %w", id, err)
 	}
@@ -565,12 +568,12 @@ func (s *CopyService) UpdateCopy(id int64, copy *models.Copy) (*models.Copy, err
 	return updatedCopy, nil
 }
 
-func (s *CopyService) DeleteCopy(id int64) error {
+func (s *CopyService) DeleteCopy(libraryID, id int64) error {
 	if id <= 0 {
 		return errors.New("El ID de la copia es inválido")
 	}
 
-	existingCopy, err := s.copyStore.GetByID(id)
+	existingCopy, err := s.copyStore.GetByID(libraryID, id)
 	if err != nil {
 		return fmt.Errorf("La copia con ID %d no existe: %w", id, err)
 	}
@@ -583,7 +586,7 @@ func (s *CopyService) DeleteCopy(id int64) error {
 		return fmt.Errorf("No se puede eliminar la copia porque está actualmente prestada")
 	}
 
-	activeLoans, err := s.loanStore.GetLoansFiltered(store.LoanFilter{
+	activeLoans, err := s.loanStore.GetLoansFiltered(libraryID, store.LoanFilter{
 		CopyID: &id,
 		Status: "Active",
 	})
@@ -591,7 +594,7 @@ func (s *CopyService) DeleteCopy(id int64) error {
 		return fmt.Errorf("No se puede eliminar la copia porque tiene %d préstamo(s) activo(s)", len(activeLoans))
 	}
 
-	overdueLoans, err := s.loanStore.GetLoansFiltered(store.LoanFilter{
+	overdueLoans, err := s.loanStore.GetLoansFiltered(libraryID, store.LoanFilter{
 		CopyID:  &id,
 		Overdue: true,
 	})
@@ -599,7 +602,7 @@ func (s *CopyService) DeleteCopy(id int64) error {
 		return fmt.Errorf("No se puede eliminar la copia porque tiene %d préstamo(s) vencido(s) sin devolver", len(overdueLoans))
 	}
 
-	if err := s.copyStore.Delete(id); err != nil {
+	if err := s.copyStore.Delete(libraryID, id); err != nil {
 		return fmt.Errorf("Error al eliminar la copia con ID %d: %w", id, err)
 	}
 

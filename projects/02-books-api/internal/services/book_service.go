@@ -27,8 +27,8 @@ func NewBookService(bookStore store.IBookStore, authorStore store.IAuthorStore, 
 	}
 }
 
-func (s *BookService) GetAllBooks() ([]*models.Book, error) {
-	books, err := s.bookStore.GetAll()
+func (s *BookService) GetAllBooks(libraryID int64) ([]*models.Book, error) {
+	books, err := s.bookStore.GetAll(libraryID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener los libros: %w", err)
 	}
@@ -36,12 +36,12 @@ func (s *BookService) GetAllBooks() ([]*models.Book, error) {
 	return books, nil
 }
 
-func (s *BookService) GetBookByID(id int64) (*models.Book, error) {
+func (s *BookService) GetBookByID(libraryID, id int64) (*models.Book, error) {
 	if id <= 0 {
 		return nil, errors.New("El ID del libro es inválido")
 	}
 
-	book, err := s.bookStore.GetByID(id)
+	book, err := s.bookStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener el libro con ID %d: %w", id, err)
 	}
@@ -49,12 +49,12 @@ func (s *BookService) GetBookByID(id int64) (*models.Book, error) {
 	return book, nil
 }
 
-func (s *BookService) GetBookByISBN(isbn string) (*models.Book, error) {
+func (s *BookService) GetBookByISBN(libraryID int64, isbn string) (*models.Book, error) {
 	if strings.TrimSpace(isbn) == "" {
 		return nil, errors.New("El ISBN no puede estar vacío")
 	}
 
-	book, err := s.bookStore.GetByISBN(isbn)
+	book, err := s.bookStore.GetByISBN(libraryID, isbn)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener el libro con ISBN %s: %w", isbn, err)
 	}
@@ -66,7 +66,7 @@ func (s *BookService) GetBookByISBN(isbn string) (*models.Book, error) {
 	return book, nil
 }
 
-func (s *BookService) GetBooksFiltered(filter store.BookFilter) ([]*models.Book, error) {
+func (s *BookService) GetBooksFiltered(libraryID int64, filter store.BookFilter) ([]*models.Book, error) {
 	if filter.ShelfID != nil {
 		if *filter.ShelfID <= 0 {
 			return nil, errors.New("El ID del estante es inválido")
@@ -78,7 +78,7 @@ func (s *BookService) GetBooksFiltered(filter store.BookFilter) ([]*models.Book,
 			return nil, errors.New("El ID del autor es inválido")
 		}
 
-		_, err := s.authorStore.GetByID(*filter.AuthorID)
+		_, err := s.authorStore.GetByID(libraryID, *filter.AuthorID)
 		if err != nil {
 			return nil, fmt.Errorf("El autor con ID %d no existe: %w", *filter.AuthorID, err)
 		}
@@ -98,7 +98,7 @@ func (s *BookService) GetBooksFiltered(filter store.BookFilter) ([]*models.Book,
 		}
 	}
 
-	books, err := s.bookStore.GetBooksFiltered(filter)
+	books, err := s.bookStore.GetBooksFiltered(libraryID, filter)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener los libros filtrados: %w", err)
 	}
@@ -106,16 +106,17 @@ func (s *BookService) GetBooksFiltered(filter store.BookFilter) ([]*models.Book,
 	return books, nil
 }
 
-func (s *BookService) CreateBook(book *models.Book) (*models.Book, error) {
+func (s *BookService) CreateBook(libraryID int64, book *models.Book) (*models.Book, error) {
 	if err := validations.ValidateBook(book); err != nil {
 		return nil, fmt.Errorf("validación fallida: %w", err)
 	}
 
-	existingBook, _ := s.bookStore.GetByISBN(book.ISBN)
+	existingBook, _ := s.bookStore.GetByISBN(libraryID, book.ISBN)
 	if existingBook != nil {
 		return nil, fmt.Errorf("Ya existe un libro con el ISBN %s", book.ISBN)
 	}
 
+	book.LibraryID = libraryID
 	book.ISBN = strings.TrimSpace(book.ISBN)
 	book.Title = strings.TrimSpace(book.Title)
 
@@ -143,7 +144,7 @@ func (s *BookService) CreateBook(book *models.Book) (*models.Book, error) {
 		book.Status = "Available"
 	}
 
-	createdBook, err := s.bookStore.Create(book)
+	createdBook, err := s.bookStore.Create(libraryID, book)
 	if err != nil {
 		return nil, fmt.Errorf("Error al crear el libro: %w", err)
 	}
@@ -151,12 +152,12 @@ func (s *BookService) CreateBook(book *models.Book) (*models.Book, error) {
 	return createdBook, nil
 }
 
-func (s *BookService) UpdateBook(id int64, book *models.Book) (*models.Book, error) {
+func (s *BookService) UpdateBook(libraryID, id int64, book *models.Book) (*models.Book, error) {
 	if id <= 0 {
 		return nil, errors.New("El ID del libro es inválido")
 	}
 
-	existingBook, err := s.bookStore.GetByID(id)
+	existingBook, err := s.bookStore.GetByID(libraryID, id)
 	if err != nil {
 		return nil, fmt.Errorf("El libro con ID %d no existe: %w", id, err)
 	}
@@ -169,7 +170,7 @@ func (s *BookService) UpdateBook(id int64, book *models.Book) (*models.Book, err
 		return nil, fmt.Errorf("Validación fallida: %w", err)
 	}
 
-	bookWithISBN, _ := s.bookStore.GetByISBN(book.ISBN)
+	bookWithISBN, _ := s.bookStore.GetByISBN(libraryID, book.ISBN)
 	if bookWithISBN != nil && bookWithISBN.ID != id {
 		return nil, fmt.Errorf("Ya existe otro libro con el ISBN %s", book.ISBN)
 	}
@@ -195,7 +196,7 @@ func (s *BookService) UpdateBook(id int64, book *models.Book) (*models.Book, err
 
 	book.RegistrationDate = existingBook.RegistrationDate
 
-	updatedBook, err := s.bookStore.Update(id, book)
+	updatedBook, err := s.bookStore.Update(libraryID, id, book)
 	if err != nil {
 		return nil, fmt.Errorf("Error al actualizar el libro con ID %d: %w", id, err)
 	}
@@ -203,12 +204,12 @@ func (s *BookService) UpdateBook(id int64, book *models.Book) (*models.Book, err
 	return updatedBook, nil
 }
 
-func (s *BookService) DeleteBook(id int64) error {
+func (s *BookService) DeleteBook(libraryID, id int64) error {
 	if id <= 0 {
 		return errors.New("El ID del libro es inválido")
 	}
 
-	existingBook, err := s.bookStore.GetByID(id)
+	existingBook, err := s.bookStore.GetByID(libraryID, id)
 	if err != nil {
 		return fmt.Errorf("El libro con ID %d no existe: %w", id, err)
 	}
@@ -217,7 +218,7 @@ func (s *BookService) DeleteBook(id int64) error {
 		return fmt.Errorf("El libro con ID %d no fue encontrado", id)
 	}
 
-	copies, err := s.copyStore.GetCopiesFiltered(store.CopyFilter{
+	copies, err := s.copyStore.GetCopiesFiltered(libraryID, store.CopyFilter{
 		BookID: &id,
 		Status: "Borrowed",
 	})
@@ -225,7 +226,7 @@ func (s *BookService) DeleteBook(id int64) error {
 		return fmt.Errorf("No se puede eliminar el libro porque tiene %d copia(s) prestada(s)", len(copies))
 	}
 
-	activeReservations, err := s.reservationStore.GetReservationsFiltered(store.ReservationFilter{
+	activeReservations, err := s.reservationStore.GetReservationsFiltered(libraryID, store.ReservationFilter{
 		BookID: &id,
 		Status: "Pending",
 	})
@@ -233,7 +234,7 @@ func (s *BookService) DeleteBook(id int64) error {
 		return fmt.Errorf("No se puede eliminar el libro porque tiene %d reservación(es) activa(s)", len(activeReservations))
 	}
 
-	processingReservations, err := s.reservationStore.GetReservationsFiltered(store.ReservationFilter{
+	processingReservations, err := s.reservationStore.GetReservationsFiltered(libraryID, store.ReservationFilter{
 		BookID: &id,
 		Status: "Active",
 	})
@@ -241,24 +242,24 @@ func (s *BookService) DeleteBook(id int64) error {
 		return fmt.Errorf("No se puede eliminar el libro porque tiene %d reservación(es) en proceso", len(processingReservations))
 	}
 
-	if err := s.bookStore.Delete(id); err != nil {
+	if err := s.bookStore.Delete(libraryID, id); err != nil {
 		return fmt.Errorf("Error al eliminar el libro con ID %d: %w", id, err)
 	}
 
 	return nil
 }
 
-func (s *BookService) GetBookAuthors(bookID int64) ([]*models.Author, error) {
+func (s *BookService) GetBookAuthors(libraryID, bookID int64) ([]*models.Author, error) {
 	if bookID <= 0 {
 		return nil, errors.New("El ID del libro es inválido")
 	}
 
-	_, err := s.bookStore.GetByID(bookID)
+	_, err := s.bookStore.GetByID(libraryID, bookID)
 	if err != nil {
 		return nil, fmt.Errorf("El libro con ID %d no existe: %w", bookID, err)
 	}
 
-	authors, err := s.bookStore.GetBookAuthors(bookID)
+	authors, err := s.bookStore.GetBookAuthors(libraryID, bookID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener los autores del libro: %w", err)
 	}
@@ -266,29 +267,29 @@ func (s *BookService) GetBookAuthors(bookID int64) ([]*models.Author, error) {
 	return authors, nil
 }
 
-func (s *BookService) AddAuthorToBook(bookAuthor *models.BookAuthor) error {
+func (s *BookService) AddAuthorToBook(libraryID int64, bookAuthor *models.BookAuthor) error {
 	if err := validations.ValidateBookAuthor(bookAuthor); err != nil {
 		return fmt.Errorf("Validación fallida: %w", err)
 	}
 
-	_, err := s.bookStore.GetByID(bookAuthor.BookID)
+	_, err := s.bookStore.GetByID(libraryID, bookAuthor.BookID)
 	if err != nil {
 		return fmt.Errorf("El libro con ID %d no existe: %w", bookAuthor.BookID, err)
 	}
 
-	_, err = s.authorStore.GetByID(bookAuthor.AuthorID)
+	_, err = s.authorStore.GetByID(libraryID, bookAuthor.AuthorID)
 	if err != nil {
 		return fmt.Errorf("El autor con ID %d no existe: %w", bookAuthor.AuthorID, err)
 	}
 
-	if err := s.bookStore.AddAuthorToBook(bookAuthor); err != nil {
+	if err := s.bookStore.AddAuthorToBook(libraryID, bookAuthor); err != nil {
 		return fmt.Errorf("Error al agregar el autor al libro: %w", err)
 	}
 
 	return nil
 }
 
-func (s *BookService) RemoveAuthorFromBook(bookID, authorID int64) error {
+func (s *BookService) RemoveAuthorFromBook(libraryID, bookID, authorID int64) error {
 	if bookID <= 0 {
 		return errors.New("El ID del libro es inválido")
 	}
@@ -297,19 +298,19 @@ func (s *BookService) RemoveAuthorFromBook(bookID, authorID int64) error {
 		return errors.New("El ID del autor es inválido")
 	}
 
-	_, err := s.bookStore.GetByID(bookID)
+	_, err := s.bookStore.GetByID(libraryID, bookID)
 	if err != nil {
 		return fmt.Errorf("El libro con ID %d no existe: %w", bookID, err)
 	}
 
-	if err := s.bookStore.RemoveAuthorFromBook(bookID, authorID); err != nil {
+	if err := s.bookStore.RemoveAuthorFromBook(libraryID, bookID, authorID); err != nil {
 		return fmt.Errorf("Error al eliminar el autor del libro: %w", err)
 	}
 
 	return nil
 }
 
-func (s *BookService) UpdateAuthorPosition(bookID, authorID int64, position int) error {
+func (s *BookService) UpdateAuthorPosition(libraryID, bookID, authorID int64, position int) error {
 	if bookID <= 0 {
 		return errors.New("El ID del libro es inválido")
 	}
@@ -322,29 +323,29 @@ func (s *BookService) UpdateAuthorPosition(bookID, authorID int64, position int)
 		return errors.New("La posición debe ser al menos 1")
 	}
 
-	_, err := s.bookStore.GetByID(bookID)
+	_, err := s.bookStore.GetByID(libraryID, bookID)
 	if err != nil {
 		return fmt.Errorf("El libro con ID %d no existe: %w", bookID, err)
 	}
 
-	if err := s.bookStore.UpdateAuthorPosition(bookID, authorID, position); err != nil {
+	if err := s.bookStore.UpdateAuthorPosition(libraryID, bookID, authorID, position); err != nil {
 		return fmt.Errorf("Error al actualizar la posición del autor: %w", err)
 	}
 
 	return nil
 }
 
-func (s *BookService) GetBookCategories(bookID int64) ([]*models.Category, error) {
+func (s *BookService) GetBookCategories(libraryID, bookID int64) ([]*models.Category, error) {
 	if bookID <= 0 {
 		return nil, errors.New("El ID del libro es inválido")
 	}
 
-	_, err := s.bookStore.GetByID(bookID)
+	_, err := s.bookStore.GetByID(libraryID, bookID)
 	if err != nil {
 		return nil, fmt.Errorf("El libro con ID %d no existe: %w", bookID, err)
 	}
 
-	categories, err := s.bookStore.GetBookCategories(bookID)
+	categories, err := s.bookStore.GetBookCategories(libraryID, bookID)
 	if err != nil {
 		return nil, fmt.Errorf("Error al obtener las categorías del libro: %w", err)
 	}
@@ -352,24 +353,24 @@ func (s *BookService) GetBookCategories(bookID int64) ([]*models.Category, error
 	return categories, nil
 }
 
-func (s *BookService) AddCategoryToBook(bookCategory *models.BookCategory) error {
+func (s *BookService) AddCategoryToBook(libraryID int64, bookCategory *models.BookCategory) error {
 	if err := validations.ValidateBookCategory(bookCategory); err != nil {
 		return fmt.Errorf("Validación fallida: %w", err)
 	}
 
-	_, err := s.bookStore.GetByID(bookCategory.BookID)
+	_, err := s.bookStore.GetByID(libraryID, bookCategory.BookID)
 	if err != nil {
 		return fmt.Errorf("El libro con ID %d no existe: %w", bookCategory.BookID, err)
 	}
 
-	if err := s.bookStore.AddCategoryToBook(bookCategory); err != nil {
+	if err := s.bookStore.AddCategoryToBook(libraryID, bookCategory); err != nil {
 		return fmt.Errorf("Error al agregar la categoría al libro: %w", err)
 	}
 
 	return nil
 }
 
-func (s *BookService) RemoveCategoryFromBook(bookID, categoryID int64) error {
+func (s *BookService) RemoveCategoryFromBook(libraryID, bookID, categoryID int64) error {
 	if bookID <= 0 {
 		return errors.New("El ID del libro es inválido")
 	}
@@ -378,12 +379,12 @@ func (s *BookService) RemoveCategoryFromBook(bookID, categoryID int64) error {
 		return errors.New("El ID de la categoría es inválido")
 	}
 
-	_, err := s.bookStore.GetByID(bookID)
+	_, err := s.bookStore.GetByID(libraryID, bookID)
 	if err != nil {
 		return fmt.Errorf("El libro con ID %d no existe: %w", bookID, err)
 	}
 
-	if err := s.bookStore.RemoveCategoryFromBook(bookID, categoryID); err != nil {
+	if err := s.bookStore.RemoveCategoryFromBook(libraryID, bookID, categoryID); err != nil {
 		return fmt.Errorf("Error al eliminar la categoría del libro: %w", err)
 	}
 
