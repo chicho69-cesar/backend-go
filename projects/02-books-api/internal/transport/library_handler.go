@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chicho69-cesar/backend-go/books/internal/middleware"
 	"github.com/chicho69-cesar/backend-go/books/internal/models"
 	"github.com/chicho69-cesar/backend-go/books/internal/services"
 	"github.com/chicho69-cesar/backend-go/books/internal/store"
@@ -170,6 +171,12 @@ func (h *LibraryHandler) HandleLibraryByID(w http.ResponseWriter, r *http.Reques
 // GET /zones - Obtener todas las zonas o con filtros
 // POST /zones - Crear una nueva zona
 func (h *LibraryZoneHandler) HandleZones(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
 			var hasFilters bool
@@ -197,9 +204,9 @@ func (h *LibraryZoneHandler) HandleZones(w http.ResponseWriter, r *http.Request)
 			var err error
 
 			if hasFilters {
-				zones, err = h.zoneService.GetZonesFiltered(filter)
+				zones, err = h.zoneService.GetZonesFiltered(libraryID, filter)
 			} else {
-				zones, err = h.zoneService.GetAllZones()
+				zones, err = h.zoneService.GetAllZones(libraryID)
 			}
 
 			if err != nil {
@@ -218,7 +225,7 @@ func (h *LibraryZoneHandler) HandleZones(w http.ResponseWriter, r *http.Request)
 				return
 			}
 
-			createdZone, err := h.zoneService.CreateZone(&zone)
+			createdZone, err := h.zoneService.CreateZone(libraryID, &zone)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -237,6 +244,12 @@ func (h *LibraryZoneHandler) HandleZones(w http.ResponseWriter, r *http.Request)
 // PUT /zones/{id} - Actualizar zona por ID
 // DELETE /zones/{id} - Eliminar zona por ID
 func (h *LibraryZoneHandler) HandleZoneByID(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	idParam := strings.TrimPrefix(r.URL.Path, "/zones/")
 	if idParam == "" {
 		http.Error(w, "El parámetro ID es requerido", http.StatusBadRequest)
@@ -253,7 +266,7 @@ func (h *LibraryZoneHandler) HandleZoneByID(w http.ResponseWriter, r *http.Reque
 
 	switch r.Method {
 		case http.MethodGet:
-			zone, err := h.zoneService.GetZoneByID(id)
+			zone, err := h.zoneService.GetZoneByID(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
@@ -270,7 +283,7 @@ func (h *LibraryZoneHandler) HandleZoneByID(w http.ResponseWriter, r *http.Reque
 				return
 			}
 
-			updatedZone, err := h.zoneService.UpdateZone(id, &zone)
+			updatedZone, err := h.zoneService.UpdateZone(libraryID, id, &zone)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -280,7 +293,7 @@ func (h *LibraryZoneHandler) HandleZoneByID(w http.ResponseWriter, r *http.Reque
 			json.NewEncoder(w).Encode(updatedZone)
 
 		case http.MethodDelete:
-			err := h.zoneService.DeleteZone(id)
+			err := h.zoneService.DeleteZone(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -296,6 +309,12 @@ func (h *LibraryZoneHandler) HandleZoneByID(w http.ResponseWriter, r *http.Reque
 // GET /shelves - Obtener todos los estantes o con filtros
 // POST /shelves - Crear un nuevo estante
 func (h *ShelfHandler) HandleShelves(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
 			var hasFilters bool
@@ -323,9 +342,9 @@ func (h *ShelfHandler) HandleShelves(w http.ResponseWriter, r *http.Request) {
 			var err error
 
 			if hasFilters {
-				shelves, err = h.shelfService.GetShelvesFiltered(filter)
+				shelves, err = h.shelfService.GetShelvesFiltered(libraryID, filter)
 			} else {
-				shelves, err = h.shelfService.GetAllShelves()
+				shelves, err = h.shelfService.GetAllShelves(libraryID)
 			}
 
 			if err != nil {
@@ -344,7 +363,7 @@ func (h *ShelfHandler) HandleShelves(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			createdShelf, err := h.shelfService.CreateShelf(&shelf)
+			createdShelf, err := h.shelfService.CreateShelf(libraryID, &shelf)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -363,6 +382,12 @@ func (h *ShelfHandler) HandleShelves(w http.ResponseWriter, r *http.Request) {
 // PUT /shelves/{id} - Actualizar estante por ID
 // DELETE /shelves/{id} - Eliminar estante por ID
 func (h *ShelfHandler) HandleShelfByID(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	idParam := strings.TrimPrefix(r.URL.Path, "/shelves/")
 	if idParam == "" {
 		http.Error(w, "El parámetro ID es requerido", http.StatusBadRequest)
@@ -379,7 +404,7 @@ func (h *ShelfHandler) HandleShelfByID(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 		case http.MethodGet:
-			shelf, err := h.shelfService.GetShelfByID(id)
+			shelf, err := h.shelfService.GetShelfByID(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
@@ -396,7 +421,7 @@ func (h *ShelfHandler) HandleShelfByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			updatedShelf, err := h.shelfService.UpdateShelf(id, &shelf)
+			updatedShelf, err := h.shelfService.UpdateShelf(libraryID, id, &shelf)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -406,7 +431,7 @@ func (h *ShelfHandler) HandleShelfByID(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(updatedShelf)
 
 		case http.MethodDelete:
-			err := h.shelfService.DeleteShelf(id)
+			err := h.shelfService.DeleteShelf(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -422,6 +447,12 @@ func (h *ShelfHandler) HandleShelfByID(w http.ResponseWriter, r *http.Request) {
 // GET /copies - Obtener todas las copias o con filtros
 // POST /copies - Crear una nueva copia
 func (h *CopyHandler) HandleCopies(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
 			var hasFilters bool
@@ -461,9 +492,9 @@ func (h *CopyHandler) HandleCopies(w http.ResponseWriter, r *http.Request) {
 			var err error
 
 			if hasFilters {
-				copies, err = h.copyService.GetCopiesFiltered(filter)
+				copies, err = h.copyService.GetCopiesFiltered(libraryID, filter)
 			} else {
-				copies, err = h.copyService.GetAllCopies()
+				copies, err = h.copyService.GetAllCopies(libraryID)
 			}
 
 			if err != nil {
@@ -482,7 +513,7 @@ func (h *CopyHandler) HandleCopies(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			createdCopy, err := h.copyService.CreateCopy(&copy)
+			createdCopy, err := h.copyService.CreateCopy(libraryID, &copy)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -501,6 +532,12 @@ func (h *CopyHandler) HandleCopies(w http.ResponseWriter, r *http.Request) {
 // PUT /copies/{id} - Actualizar copia por ID
 // DELETE /copies/{id} - Eliminar copia por ID
 func (h *CopyHandler) HandleCopyByID(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	idParam := strings.TrimPrefix(r.URL.Path, "/copies/")
 	if idParam == "" {
 		http.Error(w, "El parámetro ID es requerido", http.StatusBadRequest)
@@ -517,7 +554,7 @@ func (h *CopyHandler) HandleCopyByID(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 		case http.MethodGet:
-			copy, err := h.copyService.GetCopyByID(id)
+			copy, err := h.copyService.GetCopyByID(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
@@ -534,7 +571,7 @@ func (h *CopyHandler) HandleCopyByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			updatedCopy, err := h.copyService.UpdateCopy(id, &copy)
+			updatedCopy, err := h.copyService.UpdateCopy(libraryID, id, &copy)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -544,7 +581,7 @@ func (h *CopyHandler) HandleCopyByID(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(updatedCopy)
 
 		case http.MethodDelete:
-			err := h.copyService.DeleteCopy(id)
+			err := h.copyService.DeleteCopy(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return

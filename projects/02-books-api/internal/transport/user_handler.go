@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chicho69-cesar/backend-go/books/internal/middleware"
 	"github.com/chicho69-cesar/backend-go/books/internal/models"
 	"github.com/chicho69-cesar/backend-go/books/internal/services"
 	"github.com/chicho69-cesar/backend-go/books/internal/store"
@@ -22,6 +23,12 @@ func NewUserHandler(userService *services.UserService) *UserHandler {
 // GET /users - Obtener todos los usuarios o con filtros
 // POST /users - Crear un nuevo usuario
 func (h *UserHandler) HandleUsers(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
 			var hasFilters bool
@@ -55,9 +62,9 @@ func (h *UserHandler) HandleUsers(w http.ResponseWriter, r *http.Request) {
 			var err error
 
 			if hasFilters {
-				users, err = h.userService.GetUsersFiltered(filter)
+				users, err = h.userService.GetUsersFiltered(libraryID, filter)
 			} else {
-				users, err = h.userService.GetAllUsers()
+				users, err = h.userService.GetAllUsers(libraryID)
 			}
 
 			if err != nil {
@@ -76,7 +83,7 @@ func (h *UserHandler) HandleUsers(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			createdUser, err := h.userService.CreateUser(&user)
+			createdUser, err := h.userService.CreateUser(libraryID, &user)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -95,6 +102,12 @@ func (h *UserHandler) HandleUsers(w http.ResponseWriter, r *http.Request) {
 // PUT /users/{id} - Actualizar usuario por ID
 // DELETE /users/{id} - Eliminar usuario por ID
 func (h *UserHandler) HandleUserByID(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	idParam := strings.TrimPrefix(r.URL.Path, "/users/")
 	if idParam == "" {
 		http.Error(w, "El parámetro ID es requerido", http.StatusBadRequest)
@@ -111,7 +124,7 @@ func (h *UserHandler) HandleUserByID(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 		case http.MethodGet:
-			user, err := h.userService.GetUserByID(id)
+			user, err := h.userService.GetUserByID(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
@@ -128,7 +141,7 @@ func (h *UserHandler) HandleUserByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			updatedUser, err := h.userService.UpdateUser(id, &user)
+			updatedUser, err := h.userService.UpdateUser(libraryID, id, &user)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -138,7 +151,7 @@ func (h *UserHandler) HandleUserByID(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(updatedUser)
 
 		case http.MethodDelete:
-			err := h.userService.DeleteUser(id)
+			err := h.userService.DeleteUser(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return

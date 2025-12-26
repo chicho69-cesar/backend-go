@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chicho69-cesar/backend-go/books/internal/middleware"
 	"github.com/chicho69-cesar/backend-go/books/internal/models"
 	"github.com/chicho69-cesar/backend-go/books/internal/services"
 	"github.com/chicho69-cesar/backend-go/books/internal/store"
@@ -24,6 +25,12 @@ func NewBookHandler(bookService *services.BookService) *BookHandler {
 // GET /books - Obtener todos los libros o con filtros
 // POST /books - Crear un nuevo libro
 func (h *BookHandler) HandleBooks(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
 			var hasFilters bool
@@ -75,9 +82,9 @@ func (h *BookHandler) HandleBooks(w http.ResponseWriter, r *http.Request) {
 			var err error
 
 			if hasFilters {
-				books, err = h.bookService.GetBooksFiltered(filter)
+				books, err = h.bookService.GetBooksFiltered(libraryID, filter)
 			} else {
-				books, err = h.bookService.GetAllBooks()
+				books, err = h.bookService.GetAllBooks(libraryID)
 			}
 
 			if err != nil {
@@ -96,7 +103,7 @@ func (h *BookHandler) HandleBooks(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			createdBook, err := h.bookService.CreateBook(&book)
+			createdBook, err := h.bookService.CreateBook(libraryID, &book)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -115,6 +122,12 @@ func (h *BookHandler) HandleBooks(w http.ResponseWriter, r *http.Request) {
 // PUT /books/{id} - Actualizar un libro por ID
 // DELETE /books/{id} - Eliminar un libro por ID
 func (h *BookHandler) HandleBookByID(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	path := strings.TrimPrefix(r.URL.Path, "/books/")
 	parts := strings.Split(path, "/")
 	
@@ -148,7 +161,7 @@ func (h *BookHandler) HandleBookByID(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 		case http.MethodGet:
-			book, err := h.bookService.GetBookByID(id)
+			book, err := h.bookService.GetBookByID(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
@@ -165,7 +178,7 @@ func (h *BookHandler) HandleBookByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			updatedBook, err := h.bookService.UpdateBook(id, &book)
+			updatedBook, err := h.bookService.UpdateBook(libraryID, id, &book)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -175,7 +188,7 @@ func (h *BookHandler) HandleBookByID(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(updatedBook)
 
 		case http.MethodDelete:
-			err := h.bookService.DeleteBook(id)
+			err := h.bookService.DeleteBook(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -193,9 +206,15 @@ func (h *BookHandler) HandleBookByID(w http.ResponseWriter, r *http.Request) {
 // DELETE /books/{id}/authors/{authorId} - Eliminar autor del libro
 // PUT /books/{id}/authors/{authorId} - Actualizar posición del autor
 func (h *BookHandler) handleBookAuthors(w http.ResponseWriter, r *http.Request, bookID int64, parts []string) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
-			authors, err := h.bookService.GetBookAuthors(bookID)
+			authors, err := h.bookService.GetBookAuthors(libraryID, bookID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -214,7 +233,7 @@ func (h *BookHandler) handleBookAuthors(w http.ResponseWriter, r *http.Request, 
 
 			bookAuthor.BookID = bookID
 
-			err = h.bookService.AddAuthorToBook(&bookAuthor)
+			err = h.bookService.AddAuthorToBook(libraryID, &bookAuthor)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -238,7 +257,7 @@ func (h *BookHandler) handleBookAuthors(w http.ResponseWriter, r *http.Request, 
 				return
 			}
 
-			err = h.bookService.RemoveAuthorFromBook(bookID, authorID)
+			err = h.bookService.RemoveAuthorFromBook(libraryID, bookID, authorID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -268,7 +287,7 @@ func (h *BookHandler) handleBookAuthors(w http.ResponseWriter, r *http.Request, 
 				return
 			}
 
-			err = h.bookService.UpdateAuthorPosition(bookID, authorID, data.Position)
+			err = h.bookService.UpdateAuthorPosition(libraryID, bookID, authorID, data.Position)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -288,9 +307,15 @@ func (h *BookHandler) handleBookAuthors(w http.ResponseWriter, r *http.Request, 
 // POST /books/{id}/categories - Agregar categoría al libro
 // DELETE /books/{id}/categories/{categoryId} - Eliminar categoría del libro
 func (h *BookHandler) handleBookCategories(w http.ResponseWriter, r *http.Request, bookID int64, parts []string) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
-			categories, err := h.bookService.GetBookCategories(bookID)
+			categories, err := h.bookService.GetBookCategories(libraryID, bookID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -309,7 +334,7 @@ func (h *BookHandler) handleBookCategories(w http.ResponseWriter, r *http.Reques
 
 			bookCategory.BookID = bookID
 
-			err = h.bookService.AddCategoryToBook(&bookCategory)
+			err = h.bookService.AddCategoryToBook(libraryID, &bookCategory)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -333,7 +358,7 @@ func (h *BookHandler) handleBookCategories(w http.ResponseWriter, r *http.Reques
 				return
 			}
 
-			err = h.bookService.RemoveCategoryFromBook(bookID, categoryID)
+			err = h.bookService.RemoveCategoryFromBook(libraryID, bookID, categoryID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return

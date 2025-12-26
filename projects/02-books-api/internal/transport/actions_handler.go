@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chicho69-cesar/backend-go/books/internal/middleware"
 	"github.com/chicho69-cesar/backend-go/books/internal/models"
 	"github.com/chicho69-cesar/backend-go/books/internal/services"
 	"github.com/chicho69-cesar/backend-go/books/internal/store"
@@ -40,6 +41,12 @@ func NewFineHandler(fineService *services.FineService) *FineHandler {
 // GET /loans - Obtener todos los préstamos o con filtros
 // POST /loans - Crear un nuevo préstamo
 func (h *LoanHandler) HandleLoans(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
 			var hasFilters bool
@@ -91,9 +98,9 @@ func (h *LoanHandler) HandleLoans(w http.ResponseWriter, r *http.Request) {
 			var err error
 
 			if hasFilters {
-				loans, err = h.loanService.GetLoansFiltered(filter)
+				loans, err = h.loanService.GetLoansFiltered(libraryID, filter)
 			} else {
-				loans, err = h.loanService.GetAll()
+				loans, err = h.loanService.GetAll(libraryID)
 			}
 
 			if err != nil {
@@ -111,7 +118,7 @@ func (h *LoanHandler) HandleLoans(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			createdLoan, err := h.loanService.CreateLoan(&loan)
+			createdLoan, err := h.loanService.CreateLoan(libraryID, &loan)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Error al crear préstamo: %v", err), http.StatusBadRequest)
 				return
@@ -130,6 +137,12 @@ func (h *LoanHandler) HandleLoans(w http.ResponseWriter, r *http.Request) {
 // PUT /loans/{id} - Actualizar préstamo por ID
 // DELETE /loans/{id} - Eliminar préstamo por ID
 func (h *LoanHandler) HandleLoanByID(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(pathParts) < 2 {
 		http.Error(w, "ID no proporcionado", http.StatusBadRequest)
@@ -144,7 +157,7 @@ func (h *LoanHandler) HandleLoanByID(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 		case http.MethodGet:
-			loan, err := h.loanService.GetByID(id)
+			loan, err := h.loanService.GetByID(libraryID, id)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Error al obtener préstamo: %v", err), http.StatusInternalServerError)
 				return
@@ -160,7 +173,7 @@ func (h *LoanHandler) HandleLoanByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			updatedLoan, err := h.loanService.Update(id, &loan)
+			updatedLoan, err := h.loanService.Update(libraryID, id, &loan)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Error al actualizar préstamo: %v", err), http.StatusBadRequest)
 				return
@@ -170,7 +183,7 @@ func (h *LoanHandler) HandleLoanByID(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(updatedLoan)
 
 		case http.MethodDelete:
-			if err := h.loanService.Delete(id); err != nil {
+			if err := h.loanService.Delete(libraryID, id); err != nil {
 				http.Error(w, fmt.Sprintf("Error al eliminar préstamo: %v", err), http.StatusInternalServerError)
 				return
 			}
@@ -184,6 +197,12 @@ func (h *LoanHandler) HandleLoanByID(w http.ResponseWriter, r *http.Request) {
 
 // POST /loans/{id}/renew - Renovar préstamo
 func (h *LoanHandler) HandleLoanRenew(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Unavailable Method", http.StatusMethodNotAllowed)
 		return
@@ -211,7 +230,7 @@ func (h *LoanHandler) HandleLoanRenew(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	renewedLoan, err := h.loanService.RenewLoan(id, librarianID)
+	renewedLoan, err := h.loanService.RenewLoan(libraryID, id, librarianID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error al renovar préstamo: %v", err), http.StatusBadRequest)
 		return
@@ -223,6 +242,12 @@ func (h *LoanHandler) HandleLoanRenew(w http.ResponseWriter, r *http.Request) {
 
 // POST /loans/{id}/return - Devolver préstamo
 func (h *LoanHandler) HandleLoanReturn(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Unavailable Method", http.StatusMethodNotAllowed)
 		return
@@ -249,7 +274,7 @@ func (h *LoanHandler) HandleLoanReturn(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	returnedLoan, err := h.loanService.ReturnLoan(id, notes)
+	returnedLoan, err := h.loanService.ReturnLoan(libraryID, id, notes)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error al devolver préstamo: %v", err), http.StatusBadRequest)
 		return
@@ -262,6 +287,12 @@ func (h *LoanHandler) HandleLoanReturn(w http.ResponseWriter, r *http.Request) {
 // GET /reservations - Obtener todas las reservaciones o con filtros
 // POST /reservations - Crear una nueva reservación
 func (h *ReservationHandler) HandleReservations(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
 			var hasFilters bool
@@ -307,9 +338,9 @@ func (h *ReservationHandler) HandleReservations(w http.ResponseWriter, r *http.R
 			var err error
 
 			if hasFilters {
-				reservations, err = h.reservationService.GetReservationsFiltered(filter)
+				reservations, err = h.reservationService.GetReservationsFiltered(libraryID, filter)
 			} else {
-				reservations, err = h.reservationService.GetAll()
+				reservations, err = h.reservationService.GetAll(libraryID)
 			}
 
 			if err != nil {
@@ -332,7 +363,7 @@ func (h *ReservationHandler) HandleReservations(w http.ResponseWriter, r *http.R
 			}
 
 			if reservation.ExpirationDate.IsZero() {
-				reservation.ExpirationDate = time.Now().Add(7 * 24 * time.Hour) // 7 días por defecto
+				reservation.ExpirationDate = time.Now().Add(7 * 24 * time.Hour)
 			}
 
 			if reservation.Status == "" {
@@ -343,7 +374,7 @@ func (h *ReservationHandler) HandleReservations(w http.ResponseWriter, r *http.R
 				reservation.Priority = 5
 			}
 
-			createdReservation, err := h.reservationService.CreateReservation(&reservation)
+			createdReservation, err := h.reservationService.CreateReservation(libraryID, &reservation)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Error al crear reservación: %v", err), http.StatusBadRequest)
 				return
@@ -362,6 +393,12 @@ func (h *ReservationHandler) HandleReservations(w http.ResponseWriter, r *http.R
 // PUT /reservations/{id} - Actualizar reservación por ID
 // DELETE /reservations/{id} - Eliminar reservación por ID
 func (h *ReservationHandler) HandleReservationByID(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(pathParts) < 2 {
 		http.Error(w, "ID no proporcionado", http.StatusBadRequest)
@@ -376,7 +413,7 @@ func (h *ReservationHandler) HandleReservationByID(w http.ResponseWriter, r *htt
 
 	switch r.Method {
 		case http.MethodGet:
-			reservation, err := h.reservationService.GetByID(id)
+			reservation, err := h.reservationService.GetByID(libraryID, id)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Error al obtener reservación: %v", err), http.StatusInternalServerError)
 				return
@@ -392,7 +429,7 @@ func (h *ReservationHandler) HandleReservationByID(w http.ResponseWriter, r *htt
 				return
 			}
 
-			updatedReservation, err := h.reservationService.Update(id, &reservation)
+			updatedReservation, err := h.reservationService.Update(libraryID, id, &reservation)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Error al actualizar reservación: %v", err), http.StatusBadRequest)
 				return
@@ -402,7 +439,7 @@ func (h *ReservationHandler) HandleReservationByID(w http.ResponseWriter, r *htt
 			json.NewEncoder(w).Encode(updatedReservation)
 
 		case http.MethodDelete:
-			if err := h.reservationService.Delete(id); err != nil {
+			if err := h.reservationService.Delete(libraryID, id); err != nil {
 				http.Error(w, fmt.Sprintf("Error al eliminar reservación: %v", err), http.StatusInternalServerError)
 				return
 			}
@@ -416,6 +453,12 @@ func (h *ReservationHandler) HandleReservationByID(w http.ResponseWriter, r *htt
 
 // POST /reservations/{id}/cancel - Cancelar reservación
 func (h *ReservationHandler) HandleReservationCancel(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Unavailable Method", http.StatusMethodNotAllowed)
 		return
@@ -433,7 +476,7 @@ func (h *ReservationHandler) HandleReservationCancel(w http.ResponseWriter, r *h
 		return
 	}
 
-	cancelledReservation, err := h.reservationService.CancelReservation(id)
+	cancelledReservation, err := h.reservationService.CancelReservation(libraryID, id)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error al cancelar reservación: %v", err), http.StatusBadRequest)
 		return
@@ -445,6 +488,12 @@ func (h *ReservationHandler) HandleReservationCancel(w http.ResponseWriter, r *h
 
 // POST /reservations/{id}/process - Procesar reservación
 func (h *ReservationHandler) HandleReservationProcess(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Unavailable Method", http.StatusMethodNotAllowed)
 		return
@@ -462,7 +511,7 @@ func (h *ReservationHandler) HandleReservationProcess(w http.ResponseWriter, r *
 		return
 	}
 
-	processedReservation, err := h.reservationService.ProcessReservation(id)
+	processedReservation, err := h.reservationService.ProcessReservation(libraryID, id)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error al procesar reservación: %v", err), http.StatusBadRequest)
 		return
@@ -475,6 +524,12 @@ func (h *ReservationHandler) HandleReservationProcess(w http.ResponseWriter, r *
 // GET /fines - Obtener todas las multas o con filtros
 // POST /fines - Crear una nueva multa
 func (h *FineHandler) HandleFines(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
 			var hasFilters bool
@@ -520,9 +575,9 @@ func (h *FineHandler) HandleFines(w http.ResponseWriter, r *http.Request) {
 			var err error
 
 			if hasFilters {
-				fines, err = h.fineService.GetFinesFiltered(filter)
+				fines, err = h.fineService.GetFinesFiltered(libraryID, filter)
 			} else {
-				fines, err = h.fineService.GetAll()
+				fines, err = h.fineService.GetAll(libraryID)
 			}
 
 			if err != nil {
@@ -548,7 +603,7 @@ func (h *FineHandler) HandleFines(w http.ResponseWriter, r *http.Request) {
 				fine.Status = "Pending"
 			}
 
-			createdFine, err := h.fineService.CreateFine(&fine)
+			createdFine, err := h.fineService.CreateFine(libraryID, &fine)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Error al crear multa: %v", err), http.StatusBadRequest)
 				return
@@ -567,6 +622,12 @@ func (h *FineHandler) HandleFines(w http.ResponseWriter, r *http.Request) {
 // PUT /fines/{id} - Actualizar multa por ID
 // DELETE /fines/{id} - Eliminar multa por ID
 func (h *FineHandler) HandleFineByID(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(pathParts) < 2 {
 		http.Error(w, "ID no proporcionado", http.StatusBadRequest)
@@ -581,7 +642,7 @@ func (h *FineHandler) HandleFineByID(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 		case http.MethodGet:
-			fine, err := h.fineService.GetByID(id)
+			fine, err := h.fineService.GetByID(libraryID, id)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Error al obtener multa: %v", err), http.StatusInternalServerError)
 				return
@@ -597,7 +658,7 @@ func (h *FineHandler) HandleFineByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			updatedFine, err := h.fineService.Update(id, &fine)
+			updatedFine, err := h.fineService.Update(libraryID, id, &fine)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Error al actualizar multa: %v", err), http.StatusBadRequest)
 				return
@@ -607,7 +668,7 @@ func (h *FineHandler) HandleFineByID(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(updatedFine)
 
 		case http.MethodDelete:
-			if err := h.fineService.Delete(id); err != nil {
+			if err := h.fineService.Delete(libraryID, id); err != nil {
 				http.Error(w, fmt.Sprintf("Error al eliminar multa: %v", err), http.StatusInternalServerError)
 				return
 			}
@@ -621,6 +682,12 @@ func (h *FineHandler) HandleFineByID(w http.ResponseWriter, r *http.Request) {
 
 // POST /fines/{id}/pay - Pagar multa
 func (h *FineHandler) HandleFinePay(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Unavailable Method", http.StatusMethodNotAllowed)
 		return
@@ -647,7 +714,7 @@ func (h *FineHandler) HandleFinePay(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	paidFine, err := h.fineService.PayFine(id, notes)
+	paidFine, err := h.fineService.PayFine(libraryID, id, notes)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error al pagar multa: %v", err), http.StatusBadRequest)
 		return
@@ -659,6 +726,12 @@ func (h *FineHandler) HandleFinePay(w http.ResponseWriter, r *http.Request) {
 
 // POST /fines/{id}/waive - Condonar multa
 func (h *FineHandler) HandleFineWaive(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Unavailable Method", http.StatusMethodNotAllowed)
 		return
@@ -685,7 +758,7 @@ func (h *FineHandler) HandleFineWaive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	waivedFine, err := h.fineService.WaiveFine(id, notes)
+	waivedFine, err := h.fineService.WaiveFine(libraryID, id, notes)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error al condonar multa: %v", err), http.StatusBadRequest)
 		return

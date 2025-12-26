@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/chicho69-cesar/backend-go/books/internal/middleware"
 	"github.com/chicho69-cesar/backend-go/books/internal/models"
 	"github.com/chicho69-cesar/backend-go/books/internal/services"
 )
@@ -22,9 +23,15 @@ func NewCategoryHandler(categoryService *services.CategoryService) *CategoryHand
 // GET /categories - Obtener todas las categorías
 // POST /categories - Crear una nueva categoría
 func (h *CategoryHandler) HandleCategories(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
-			categories, err := h.categoryService.GetAllCategories()
+			categories, err := h.categoryService.GetAllCategories(libraryID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -41,7 +48,7 @@ func (h *CategoryHandler) HandleCategories(w http.ResponseWriter, r *http.Reques
 				return
 			}
 
-			createdCategory, err := h.categoryService.CreateCategory(&category)
+			createdCategory, err := h.categoryService.CreateCategory(libraryID, &category)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -60,6 +67,12 @@ func (h *CategoryHandler) HandleCategories(w http.ResponseWriter, r *http.Reques
 // PUT /categories/{id} - Actualizar una categoría por ID
 // DELETE /categories/{id} - Eliminar una categoría por ID
 func (h *CategoryHandler) HandleCategoryByID(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	idParam := r.URL.Path[len("/categories/"):]
 	if idParam == "" {
 		http.Error(w, "El parámetro ID es requerido", http.StatusBadRequest)
@@ -76,7 +89,7 @@ func (h *CategoryHandler) HandleCategoryByID(w http.ResponseWriter, r *http.Requ
 
 	switch r.Method {
 		case http.MethodGet:
-			category, err := h.categoryService.GetCategoryByID(id)
+			category, err := h.categoryService.GetCategoryByID(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
@@ -93,7 +106,7 @@ func (h *CategoryHandler) HandleCategoryByID(w http.ResponseWriter, r *http.Requ
 				return
 			}
 
-			updatedCategory, err := h.categoryService.UpdateCategory(id, &category)
+			updatedCategory, err := h.categoryService.UpdateCategory(libraryID, id, &category)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -103,7 +116,7 @@ func (h *CategoryHandler) HandleCategoryByID(w http.ResponseWriter, r *http.Requ
 			json.NewEncoder(w).Encode(updatedCategory)
 
 		case http.MethodDelete:
-			err := h.categoryService.DeleteCategory(id)
+			err := h.categoryService.DeleteCategory(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/chicho69-cesar/backend-go/books/internal/middleware"
 	"github.com/chicho69-cesar/backend-go/books/internal/models"
 	"github.com/chicho69-cesar/backend-go/books/internal/services"
 )
@@ -22,9 +23,15 @@ func NewAuthorHandler(authorService *services.AuthorService) *AuthorHandler {
 // GET /authors - Obtener todos los autores
 // POST /authors - Crear un nuevo autor
 func (h *AuthorHandler) HandleAuthors(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
-			authors, err := h.authorService.GetAllAuthors()
+			authors, err := h.authorService.GetAllAuthors(libraryID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -41,7 +48,7 @@ func (h *AuthorHandler) HandleAuthors(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			createdAuthor, err := h.authorService.CreateAuthor(&author)
+			createdAuthor, err := h.authorService.CreateAuthor(libraryID, &author)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -60,6 +67,12 @@ func (h *AuthorHandler) HandleAuthors(w http.ResponseWriter, r *http.Request) {
 // PUT /authors/{id} - Actualizar un autor por ID
 // DELETE /authors/{id} - Eliminar un autor por ID
 func (h *AuthorHandler) HandleAuthorByID(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	idParam := r.URL.Path[len("/authors/"):]
 	if idParam == "" {
 		http.Error(w, "El parámetro ID es requerido", http.StatusBadRequest)
@@ -76,7 +89,7 @@ func (h *AuthorHandler) HandleAuthorByID(w http.ResponseWriter, r *http.Request)
 
 	switch r.Method {
 		case http.MethodGet:
-			author, err := h.authorService.GetAuthorByID(id)
+			author, err := h.authorService.GetAuthorByID(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
@@ -93,7 +106,8 @@ func (h *AuthorHandler) HandleAuthorByID(w http.ResponseWriter, r *http.Request)
 				return
 			}
 
-			updatedAuthor, err := h.authorService.UpdateAuthor(id, &author)
+			author.LibraryID = libraryID
+			updatedAuthor, err := h.authorService.UpdateAuthor(libraryID, id, &author)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -103,7 +117,7 @@ func (h *AuthorHandler) HandleAuthorByID(w http.ResponseWriter, r *http.Request)
 			json.NewEncoder(w).Encode(updatedAuthor)
 
 		case http.MethodDelete:
-			err := h.authorService.DeleteAuthor(id)
+			err := h.authorService.DeleteAuthor(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return

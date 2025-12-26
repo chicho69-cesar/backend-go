@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/chicho69-cesar/backend-go/books/internal/middleware"
 	"github.com/chicho69-cesar/backend-go/books/internal/models"
 	"github.com/chicho69-cesar/backend-go/books/internal/services"
 )
@@ -22,9 +23,15 @@ func NewPublisherHandler(publisherService *services.PublisherService) *Publisher
 // GET /publishers - Obtener todas las editoriales
 // POST /publishers - Crear una nueva editorial
 func (h *PublisherHandler) HandlePublishers(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	switch r.Method {
 		case http.MethodGet:
-			publishers, err := h.publisherService.GetAllPublishers()
+			publishers, err := h.publisherService.GetAllPublishers(libraryID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -41,7 +48,7 @@ func (h *PublisherHandler) HandlePublishers(w http.ResponseWriter, r *http.Reque
 				return
 			}
 
-			createdPublisher, err := h.publisherService.CreatePublisher(&publisher)
+			createdPublisher, err := h.publisherService.CreatePublisher(libraryID, &publisher)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -60,6 +67,12 @@ func (h *PublisherHandler) HandlePublishers(w http.ResponseWriter, r *http.Reque
 // PUT /publishers/{id} - Actualizar una editorial por ID
 // DELETE /publishers/{id} - Eliminar una editorial por ID
 func (h *PublisherHandler) HandlePublisherByID(w http.ResponseWriter, r *http.Request) {
+	libraryID, err := middleware.GetLibraryID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	idParam := r.URL.Path[len("/publishers/"):]
 	if idParam == "" {
 		http.Error(w, "El parámetro ID es requerido", http.StatusBadRequest)
@@ -76,7 +89,7 @@ func (h *PublisherHandler) HandlePublisherByID(w http.ResponseWriter, r *http.Re
 
 	switch r.Method {
 		case http.MethodGet:
-			publisher, err := h.publisherService.GetPublisherByID(id)
+			publisher, err := h.publisherService.GetPublisherByID(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
@@ -93,7 +106,7 @@ func (h *PublisherHandler) HandlePublisherByID(w http.ResponseWriter, r *http.Re
 				return
 			}
 
-			updatedPublisher, err := h.publisherService.UpdatePublisher(id, &publisher)
+			updatedPublisher, err := h.publisherService.UpdatePublisher(libraryID, id, &publisher)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -103,7 +116,7 @@ func (h *PublisherHandler) HandlePublisherByID(w http.ResponseWriter, r *http.Re
 			json.NewEncoder(w).Encode(updatedPublisher)
 
 		case http.MethodDelete:
-			err := h.publisherService.DeletePublisher(id)
+			err := h.publisherService.DeletePublisher(libraryID, id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
