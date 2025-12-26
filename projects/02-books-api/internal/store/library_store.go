@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"strings"
 
+	"github.com/chicho69-cesar/backend-go/books/internal/database"
 	"github.com/chicho69-cesar/backend-go/books/internal/models"
 )
 
@@ -22,6 +23,16 @@ type CopyFilter struct {
 	BookID    *int64
 	Status    string
 	Condition string
+}
+
+type ILibraryStore interface {
+	GetAll() ([]*models.Library, error)
+	GetByID(id int64) (*models.Library, error)
+	GetByUsername(username string) (*models.Library, error)
+	CheckPassword(username, password string) (bool, error)
+	Create(library *models.Library) (*models.Library, error)
+	Update(id int64, library *models.Library) (*models.Library, error)
+	Delete(id int64) error
 }
 
 type ILibraryZoneStore interface {
@@ -54,6 +65,10 @@ type ICopyStore interface {
 	Delete(id int64) error
 }
 
+type LibraryStore struct {
+	db *sql.DB
+}
+
 type LibraryZoneStore struct {
 	db *sql.DB
 }
@@ -66,6 +81,10 @@ type CopyStore struct {
 	db *sql.DB
 }
 
+func NewLibraryStore(db *sql.DB) ILibraryStore {
+	return &LibraryStore{db: db}
+}
+
 func NewLibraryZoneStore(db *sql.DB) ILibraryZoneStore {
 	return &LibraryZoneStore{db: db}
 }
@@ -76,6 +95,183 @@ func NewShelfStore(db *sql.DB) IShelfStore {
 
 func NewCopyStore(db *sql.DB) ICopyStore {
 	return &CopyStore{db: db}
+}
+
+func (s *LibraryStore) GetAll() ([]*models.Library, error) {
+	query := `SELECT id, name, address, city, state, zip_code, country, phone, email, website FROM libraries ORDER BY name`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var libraries []*models.Library
+
+	for rows.Next() {
+		library := &models.Library{}
+
+		err := rows.Scan(
+			&library.ID,
+			&library.Name,
+			&library.Address,
+			&library.City,
+			&library.State,
+			&library.ZipCode,
+			&library.Country,
+			&library.Phone,
+			&library.Email,
+			&library.Website,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		libraries = append(libraries, library)
+	}
+
+	return libraries, nil
+}
+
+func (s *LibraryStore) GetByID(id int64) (*models.Library, error) {
+	query := `SELECT id, name, address, city, state, zip_code, country, phone, email, website FROM libraries WHERE id = ?`
+
+	library := &models.Library{}
+	err := s.db.
+		QueryRow(query, id).
+		Scan(
+			&library.ID,
+			&library.Name,
+			&library.Address,
+			&library.City,
+			&library.State,
+			&library.ZipCode,
+			&library.Country,
+			&library.Phone,
+			&library.Email,
+			&library.Website,
+		)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return library, nil
+}
+
+func (s *LibraryStore) GetByUsername(username string) (*models.Library, error) {
+	query := `SELECT id, name, address, city, state, zip_code, country, phone, email, website, username FROM libraries WHERE username = ?`
+
+	library := &models.Library{}
+	err := s.db.
+		QueryRow(query, username).
+		Scan(
+			&library.ID,
+			&library.Name,
+			&library.Address,
+			&library.City,
+			&library.State,
+			&library.ZipCode,
+			&library.Country,
+			&library.Phone,
+			&library.Email,
+			&library.Website,
+			&library.Username,
+		)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return library, nil
+}
+
+func (s *LibraryStore) CheckPassword(username, password string) (bool, error) {
+	query := `SELECT password FROM libraries WHERE username = ?`
+
+	var hashedPassword string
+
+	err := s.db.
+		QueryRow(query, username).
+		Scan(&hashedPassword)
+
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	isValid := database.CheckPasswordHash(password, hashedPassword)
+	return isValid, nil
+}
+
+func (s *LibraryStore) Create(library *models.Library) (*models.Library, error) {
+	query := `INSERT INTO libraries (name, address, city, state, zip_code, country, phone, email, website, username, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	newPassword, err := database.HashPassword(library.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	library.Password = newPassword
+
+	result, err := s.db.Exec(
+		query,
+		library.Name, library.Address, library.City, library.State,
+		library.ZipCode, library.Country, library.Phone, library.Email,
+		library.Website, library.Username, library.Password,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	library.ID = id
+	library.Password = ""
+
+	configQuery := `INSERT INTO configuration (student_loan_days, teacher_loan_days, max_renewals, max_books_per_loan, fine_per_day, reservation_days, grace_days, library_id) VALUES (15, 30, 2, 5, 0.50, 3, 2, ?)`
+
+	_, err = s.db.Exec(configQuery, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return library, nil
+}
+
+func (s *LibraryStore) Update(id int64, library *models.Library) (*models.Library, error) {
+	query := `UPDATE libraries SET name = ?, address = ?, city = ?, state = ?, zip_code = ?, country = ?, phone = ?, email = ?, website = ? WHERE id = ?`
+
+	_, err := s.db.Exec(
+		query,
+		library.Name, library.Address, library.City, library.State,
+		library.ZipCode, library.Country, library.Phone, library.Email,
+		library.Website, id,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	library.ID = id
+	return nil, nil
+}
+
+func (s *LibraryStore) Delete(id int64) error {
+	query := `DELETE FROM libraries WHERE id = ?`
+
+	_, err := s.db.Exec(query, id)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *LibraryZoneStore) GetAll() ([]*models.LibraryZone, error) {
@@ -582,7 +778,7 @@ func (s *CopyStore) GetCopiesFiltered(filter CopyFilter) ([]*models.Copy, error)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		copies = append(copies, copy)
 	}
 

@@ -11,6 +11,10 @@ import (
 	"github.com/chicho69-cesar/backend-go/books/internal/validations"
 )
 
+type LibraryService struct {
+	libraryStore store.ILibraryStore
+}
+
 type LibraryZoneService struct {
 	zoneStore store.ILibraryZoneStore
 }
@@ -24,6 +28,10 @@ type CopyService struct {
 	copyStore store.ICopyStore
 	bookStore store.IBookStore
 	loanStore store.ILoanStore
+}
+
+func NewLibraryService(libraryStore store.ILibraryStore) *LibraryService {
+	return &LibraryService{libraryStore: libraryStore}
 }
 
 func NewLibraryZoneService(zoneStore store.ILibraryZoneStore) *LibraryZoneService {
@@ -43,6 +51,115 @@ func NewCopyService(copyStore store.ICopyStore, bookStore store.IBookStore, loan
 		bookStore: bookStore,
 		loanStore: loanStore,
 	}
+}
+
+func (s *LibraryService) GetAllLibraries() ([]*models.Library, error) {
+	libraries, err := s.libraryStore.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("Error al obtener la información: %w", err)
+	}
+
+	return libraries, nil
+}
+
+func (s *LibraryService) GetLibraryByID(id int64) (*models.Library, error) {
+	if id <= 0 {
+		return nil, errors.New("El ID de la biblioteca es inválido")
+	}
+
+	library, err := s.libraryStore.GetByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("Error al obtener la biblioteca con ID %d: %w", id, err)
+	}
+
+	return library, nil
+}
+
+func (s *LibraryService) EnterLibraryCredentials(username, password string) (*models.Library, error) {
+	library, err := s.libraryStore.GetByUsername(username)
+	if err != nil {
+		return nil, fmt.Errorf("Error al obtener la biblioteca con el nombre de usuario %s: %w", username, err)
+	}
+
+	if library == nil {
+		return nil, errors.New("Nombre de usuario o contraseña incorrectos")
+	}
+
+	checkedWithPassword, err := s.libraryStore.CheckPassword(username, password)
+	if err != nil {
+		return nil, errors.New("Nombre de usuario o contraseña incorrectos")
+	}
+
+	if !checkedWithPassword {
+		return nil, errors.New("Nombre de usuario o contraseña incorrectos")
+	}
+
+	return library, nil
+}
+
+func (s *LibraryService) CreateLibrary(library *models.Library) (*models.Library, error) {
+	if err := validations.ValidateLibrary(library); err != nil {
+		return nil, fmt.Errorf("Validación fallida: %w", err)
+	}
+
+	existingLibrary, _ := s.libraryStore.GetByUsername(library.Username)
+	if existingLibrary != nil {
+		return nil, fmt.Errorf("Ya existe una biblioteca con el nombre de usuario %s", library.Username)
+	}
+
+	createdLibrary, err := s.libraryStore.Create(library)
+	if err != nil {
+		return nil, fmt.Errorf("Error al crear la biblioteca: %w", err)
+	}
+
+	return createdLibrary, nil
+}
+
+func (s *LibraryService) UpdateLibrary(id int64, library *models.Library) (*models.Library, error) {
+	if id <= 0 {
+		return nil, errors.New("El ID de la biblioteca es inválido")
+	}
+
+	existingLibrary, err := s.libraryStore.GetByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("La biblioteca con ID %d no existe: %w", id, err)
+	}
+
+	if existingLibrary == nil {
+		return nil, fmt.Errorf("La biblioteca con ID %d no fue encontrada", id)
+	}
+
+	if err := validations.ValidateLibrary(library); err != nil {
+		return nil, fmt.Errorf("Validación fallida: %w", err)
+	}
+
+	updatedLibrary, err := s.libraryStore.Update(id, library)
+	if err != nil {
+		return nil, fmt.Errorf("Error al actualizar la biblioteca con ID %d: %w", id, err)
+	}
+
+	return updatedLibrary, nil
+}
+
+func (s *LibraryService) DeleteLibrary(id int64) error {
+	if id <= 0 {
+		return errors.New("El ID de la biblioteca es inválido")
+	}
+
+	existingLibrary, err := s.libraryStore.GetByID(id)
+	if err != nil {
+		return fmt.Errorf("La biblioteca con ID %d no existe: %w", id, err)
+	}
+
+	if existingLibrary == nil {
+		return fmt.Errorf("La biblioteca con ID %d no fue encontrada", id)
+	}
+
+	if err := s.libraryStore.Delete(id); err != nil {
+		return fmt.Errorf("Error al eliminar la biblioteca con ID %d: %w", id, err)
+	}
+
+	return nil
 }
 
 func (s *LibraryZoneService) GetAllZones() ([]*models.LibraryZone, error) {

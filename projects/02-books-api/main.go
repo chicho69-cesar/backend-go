@@ -40,6 +40,10 @@ func main() {
 	}
 	defer apiLogger.Close()
 
+	libraryStore := store.NewLibraryStore(db)
+	libraryService := services.NewLibraryService(libraryStore)
+	libraryHandler := transport.NewLibraryHandler(libraryService)
+
 	authorStore := store.NewAuthorStore(db)
 	authorService := services.NewAuthorService(authorStore)
 	authorHandler := transport.NewAuthorHandler(authorService)
@@ -139,6 +143,14 @@ func main() {
 	http.HandleFunc(
 		"/fines/waive/",
 		apiLogger.Middleware(fineHandler.HandleFineWaive),
+	)
+	http.HandleFunc(
+		"/libraries",
+		apiLogger.Middleware(libraryHandler.HandleLibraries),
+	)
+	http.HandleFunc(
+		"/libraries/",
+		apiLogger.Middleware(libraryHandler.HandleLibraryByID),
 	)
 	http.HandleFunc(
 		"/loans",

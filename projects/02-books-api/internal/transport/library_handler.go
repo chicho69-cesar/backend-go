@@ -11,6 +11,10 @@ import (
 	"github.com/chicho69-cesar/backend-go/books/internal/store"
 )
 
+type LibraryHandler struct {
+	libraryService *services.LibraryService
+}
+
 type LibraryZoneHandler struct {
 	zoneService *services.LibraryZoneService
 }
@@ -23,6 +27,10 @@ type CopyHandler struct {
 	copyService *services.CopyService
 }
 
+func NewLibraryHandler(libraryService *services.LibraryService) *LibraryHandler {
+	return &LibraryHandler{libraryService: libraryService}
+}
+
 func NewLibraryZoneHandler(zoneService *services.LibraryZoneService) *LibraryZoneHandler {
 	return &LibraryZoneHandler{zoneService: zoneService}
 }
@@ -33,6 +41,130 @@ func NewShelfHandler(shelfService *services.ShelfService) *ShelfHandler {
 
 func NewCopyHandler(copyService *services.CopyService) *CopyHandler {
 	return &CopyHandler{copyService: copyService}
+}
+
+// GET /libraries - Obtener todas las bibliotecas
+// POST /libraries - Crear una nueva biblioteca
+func (h *LibraryHandler) HandleLibraries(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+		case http.MethodGet:
+			libraries, err := h.libraryService.GetAllLibraries()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(libraries)
+		
+		case http.MethodPost:
+			var library models.Library
+			err := json.NewDecoder(r.Body).Decode(&library)
+			if err != nil {
+				http.Error(w, "Datos de biblioteca inválidos", http.StatusBadRequest)
+				return
+			}
+
+			createdLibrary, err := h.libraryService.CreateLibrary(&library)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			w.WriteHeader(http.StatusCreated)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(createdLibrary)
+
+		default:
+			http.Error(w, "Unavailable Method", http.StatusMethodNotAllowed)
+	}
+}
+
+// GET /libraries/{id} - Obtener biblioteca por ID
+// POST /libraries/{id} - Ingresar a la biblioteca con credenciales
+// PUT /libraries/{id} - Actualizar biblioteca por ID
+// DELETE /libraries/{id} - Eliminar biblioteca por ID
+func (h *LibraryHandler) HandleLibraryByID(w http.ResponseWriter, r *http.Request) {
+	idParam := r.URL.Path[len("/libraries/"):]
+	if idParam == "" {
+		http.Error(w, "El parámetro ID es requerido", http.StatusBadRequest)
+		return
+	}
+
+	readId, err := strconv.Atoi(idParam)
+	if err != nil || readId <= 0 {
+		http.Error(w, "El ID es inválido", http.StatusBadRequest)
+		return
+	}
+
+	id := int64(readId)
+
+	switch r.Method {
+		case http.MethodGet:
+			library, err := h.libraryService.GetLibraryByID(id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(library)
+		
+		case http.MethodPost:
+			var credentials struct {
+				Username string `json:"username"`
+				Password string `json:"password"`
+			}
+			err := json.NewDecoder(r.Body).Decode(&credentials)
+			if err != nil {
+				http.Error(w, "Credenciales inválidas", http.StatusBadRequest)
+				return
+			}
+
+			_, err = h.libraryService.GetLibraryByID(id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+
+			authenticatedLibrary, err := h.libraryService.EnterLibraryCredentials(credentials.Username, credentials.Password)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(authenticatedLibrary)
+
+		case http.MethodPut:
+			var library models.Library
+			err := json.NewDecoder(r.Body).Decode(&library)
+			if err != nil {
+				http.Error(w, "Datos de biblioteca inválidos", http.StatusBadRequest)
+				return
+			}
+
+			updatedLibrary, err := h.libraryService.UpdateLibrary(id, &library)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application-json")
+			json.NewEncoder(w).Encode(updatedLibrary)
+
+		case http.MethodDelete:
+			err := h.libraryService.DeleteLibrary(id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusNoContent)
+
+		default:
+			http.Error(w, "Unavailable Method", http.StatusMethodNotAllowed)
+	}
 }
 
 // GET /zones - Obtener todas las zonas o con filtros
