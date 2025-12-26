@@ -7,11 +7,11 @@ import (
 )
 
 type IPublisherStore interface {
-	GetAll() ([]*models.Publisher, error)
-	GetByID(id int64) (*models.Publisher, error)
-	Create(publisher *models.Publisher) (*models.Publisher, error)
-	Update(id int64, publisher *models.Publisher) (*models.Publisher, error)
-	Delete(id int64) error
+	GetAll(libraryID int64) ([]*models.Publisher, error)
+	GetByID(libraryID, id int64) (*models.Publisher, error)
+	Create(libraryID int64, publisher *models.Publisher) (*models.Publisher, error)
+	Update(libraryID, id int64, publisher *models.Publisher) (*models.Publisher, error)
+	Delete(libraryID, id int64) error
 }
 
 type PublisherStore struct {
@@ -24,10 +24,10 @@ func NewPublisherStore(db *sql.DB) IPublisherStore {
 	}
 }
 
-func (s *PublisherStore) GetAll() ([]*models.Publisher, error) {
-	query := `SELECT id, name, country FROM publishers`
+func (s *PublisherStore) GetAll(libraryID int64) ([]*models.Publisher, error) {
+	query := `SELECT id, name, country, library_id FROM publishers WHERE library_id = ?`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +42,7 @@ func (s *PublisherStore) GetAll() ([]*models.Publisher, error) {
 			&publisher.ID,
 			&publisher.Name,
 			&publisher.Country,
+			&publisher.LibraryID,
 		)
 
 		if err != nil {
@@ -54,17 +55,18 @@ func (s *PublisherStore) GetAll() ([]*models.Publisher, error) {
 	return publishers, nil
 }
 
-func (s *PublisherStore) GetByID(id int64) (*models.Publisher, error) {
-	query := `SELECT id, name, country FROM publishers WHERE id = ?`
+func (s *PublisherStore) GetByID(libraryID, id int64) (*models.Publisher, error) {
+	query := `SELECT id, name, country, library_id FROM publishers WHERE id = ? AND library_id = ?`
 
 	var publisher = &models.Publisher{}
 
 	err := s.db.
-		QueryRow(query, id).
+		QueryRow(query, id, libraryID).
 		Scan(
 			&publisher.ID,
 			&publisher.Name,
 			&publisher.Country,
+			&publisher.LibraryID,
 		)
 
 	if err != nil {
@@ -74,10 +76,10 @@ func (s *PublisherStore) GetByID(id int64) (*models.Publisher, error) {
 	return publisher, nil
 }
 
-func (s *PublisherStore) Create(publisher *models.Publisher) (*models.Publisher, error) {
-	query := `INSERT INTO publishers (name, country) VALUES (?, ?)`
+func (s *PublisherStore) Create(libraryID int64, publisher *models.Publisher) (*models.Publisher, error) {
+	query := `INSERT INTO publishers (name, country, library_id) VALUES (?, ?, ?)`
 
-	result, err := s.db.Exec(query, publisher.Name, publisher.Country)
+	result, err := s.db.Exec(query, publisher.Name, publisher.Country, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -88,25 +90,29 @@ func (s *PublisherStore) Create(publisher *models.Publisher) (*models.Publisher,
 	}
 
 	publisher.ID = id
+	publisher.LibraryID = libraryID
+
 	return publisher, nil
 }
 
-func (s *PublisherStore) Update(id int64, publisher *models.Publisher) (*models.Publisher, error) {
-	query := `UPDATE publishers SET name = ?, country = ? WHERE id = ?`
+func (s *PublisherStore) Update(libraryID, id int64, publisher *models.Publisher) (*models.Publisher, error) {
+	query := `UPDATE publishers SET name = ?, country = ? WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, publisher.Name, publisher.Country, id)
+	_, err := s.db.Exec(query, publisher.Name, publisher.Country, id, libraryID)
 	if err != nil {
 		return nil, err
 	}
 
 	publisher.ID = id
+	publisher.LibraryID = libraryID
+
 	return publisher, nil
 }
 
-func (s *PublisherStore) Delete(id int64) error {
-	query := `DELETE FROM publishers WHERE id = ?`
+func (s *PublisherStore) Delete(libraryID, id int64) error {
+	query := `DELETE FROM publishers WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, id)
+	_, err := s.db.Exec(query, id, libraryID)
 	if err != nil {
 		return err
 	}

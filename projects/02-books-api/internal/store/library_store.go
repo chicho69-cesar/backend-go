@@ -36,33 +36,33 @@ type ILibraryStore interface {
 }
 
 type ILibraryZoneStore interface {
-	GetAll() ([]*models.LibraryZone, error)
-	GetByID(id int64) (*models.LibraryZone, error)
-	GetByCode(code string) (*models.LibraryZone, error)
-	GetZonesFiltered(filter LibraryZoneFilter) ([]*models.LibraryZone, error)
-	Create(zone *models.LibraryZone) (*models.LibraryZone, error)
-	Update(id int64, zone *models.LibraryZone) (*models.LibraryZone, error)
-	Delete(id int64) error
+	GetAll(libraryID int64) ([]*models.LibraryZone, error)
+	GetByID(libraryID, id int64) (*models.LibraryZone, error)
+	GetByCode(libraryID int64, code string) (*models.LibraryZone, error)
+	GetZonesFiltered(libraryID int64, filter LibraryZoneFilter) ([]*models.LibraryZone, error)
+	Create(libraryID int64, zone *models.LibraryZone) (*models.LibraryZone, error)
+	Update(libraryID, id int64, zone *models.LibraryZone) (*models.LibraryZone, error)
+	Delete(libraryID, id int64) error
 }
 
 type IShelfStore interface {
-	GetAll() ([]*models.Shelf, error)
-	GetByID(id int64) (*models.Shelf, error)
-	GetByCode(code string) (*models.Shelf, error)
-	GetShelvesFiltered(filter ShelfFilter) ([]*models.Shelf, error)
-	Create(shelf *models.Shelf) (*models.Shelf, error)
-	Update(id int64, shelf *models.Shelf) (*models.Shelf, error)
-	Delete(id int64) error
+	GetAll(libraryID int64) ([]*models.Shelf, error)
+	GetByID(libraryID, id int64) (*models.Shelf, error)
+	GetByCode(libraryID int64, code string) (*models.Shelf, error)
+	GetShelvesFiltered(libraryID int64, filter ShelfFilter) ([]*models.Shelf, error)
+	Create(libraryID int64, shelf *models.Shelf) (*models.Shelf, error)
+	Update(libraryID, id int64, shelf *models.Shelf) (*models.Shelf, error)
+	Delete(libraryID, id int64) error
 }
 
 type ICopyStore interface {
-	GetAll() ([]*models.Copy, error)
-	GetByID(id int64) (*models.Copy, error)
-	GetByCode(code string) (*models.Copy, error)
-	GetCopiesFiltered(filter CopyFilter) ([]*models.Copy, error)
-	Create(copy *models.Copy) (*models.Copy, error)
-	Update(id int64, copy *models.Copy) (*models.Copy, error)
-	Delete(id int64) error
+	GetAll(libraryID int64) ([]*models.Copy, error)
+	GetByID(libraryID, id int64) (*models.Copy, error)
+	GetByCode(libraryID int64, code string) (*models.Copy, error)
+	GetCopiesFiltered(libraryID int64, filter CopyFilter) ([]*models.Copy, error)
+	Create(libraryID int64, copy *models.Copy) (*models.Copy, error)
+	Update(libraryID, id int64, copy *models.Copy) (*models.Copy, error)
+	Delete(libraryID, id int64) error
 }
 
 type LibraryStore struct {
@@ -274,10 +274,10 @@ func (s *LibraryStore) Delete(id int64) error {
 	return nil
 }
 
-func (s *LibraryZoneStore) GetAll() ([]*models.LibraryZone, error) {
-	query := `SELECT id, code, name, description, floor FROM library_zones ORDER BY code`
+func (s *LibraryZoneStore) GetAll(libraryID int64) ([]*models.LibraryZone, error) {
+	query := `SELECT id, code, name, description, floor, library_id FROM library_zones WHERE library_id = ? ORDER BY code`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -294,6 +294,7 @@ func (s *LibraryZoneStore) GetAll() ([]*models.LibraryZone, error) {
 			&zone.Name,
 			&zone.Description,
 			&zone.Floor,
+			&zone.LibraryID,
 		)
 
 		if err != nil {
@@ -306,19 +307,20 @@ func (s *LibraryZoneStore) GetAll() ([]*models.LibraryZone, error) {
 	return zones, nil
 }
 
-func (s *LibraryZoneStore) GetByID(id int64) (*models.LibraryZone, error) {
-	query := `SELECT id, code, name, description, floor FROM library_zones WHERE id = ?`
+func (s *LibraryZoneStore) GetByID(libraryID, id int64) (*models.LibraryZone, error) {
+	query := `SELECT id, code, name, description, floor, library_id FROM library_zones WHERE id = ? AND library_id = ?`
 
 	zone := &models.LibraryZone{}
 
 	err := s.db.
-		QueryRow(query, id).
+		QueryRow(query, id, libraryID).
 		Scan(
 			&zone.ID,
 			&zone.Code,
 			&zone.Name,
 			&zone.Description,
 			&zone.Floor,
+			&zone.LibraryID,
 		)
 
 	if err != nil {
@@ -328,19 +330,20 @@ func (s *LibraryZoneStore) GetByID(id int64) (*models.LibraryZone, error) {
 	return zone, nil
 }
 
-func (s *LibraryZoneStore) GetByCode(code string) (*models.LibraryZone, error) {
-	query := `SELECT id, code, name, description, floor FROM library_zones WHERE code = ?`
+func (s *LibraryZoneStore) GetByCode(libraryID int64, code string) (*models.LibraryZone, error) {
+	query := `SELECT id, code, name, description, floor, library_id FROM library_zones WHERE code = ? AND library_id = ?`
 
 	zone := &models.LibraryZone{}
 
 	err := s.db.
-		QueryRow(query, code).
+		QueryRow(query, code, libraryID).
 		Scan(
 			&zone.ID,
 			&zone.Code,
 			&zone.Name,
 			&zone.Description,
 			&zone.Floor,
+			&zone.LibraryID,
 		)
 
 	if err == sql.ErrNoRows {
@@ -354,11 +357,14 @@ func (s *LibraryZoneStore) GetByCode(code string) (*models.LibraryZone, error) {
 	return zone, nil
 }
 
-func (s *LibraryZoneStore) GetZonesFiltered(filter LibraryZoneFilter) ([]*models.LibraryZone, error) {
-	query := `SELECT id, code, name, description, floor FROM library_zones`
+func (s *LibraryZoneStore) GetZonesFiltered(libraryID int64, filter LibraryZoneFilter) ([]*models.LibraryZone, error) {
+	query := `SELECT id, code, name, description, floor, library_id FROM library_zones`
 
 	var conditions []string
 	var args []any
+
+	conditions = append(conditions, "library_id = ?")
+	args = append(args, libraryID)
 
 	if filter.Code != "" {
 		conditions = append(conditions, "code = ?")
@@ -386,26 +392,30 @@ func (s *LibraryZoneStore) GetZonesFiltered(filter LibraryZoneFilter) ([]*models
 
 	for rows.Next() {
 		zone := &models.LibraryZone{}
+
 		err := rows.Scan(
 			&zone.ID,
 			&zone.Code,
 			&zone.Name,
 			&zone.Description,
 			&zone.Floor,
+			&zone.LibraryID,
 		)
+
 		if err != nil {
 			return nil, err
 		}
+
 		zones = append(zones, zone)
 	}
 
 	return zones, nil
 }
 
-func (s *LibraryZoneStore) Create(zone *models.LibraryZone) (*models.LibraryZone, error) {
-	query := `INSERT INTO library_zones (code, name, description, floor) VALUES (?, ?, ?, ?)`
+func (s *LibraryZoneStore) Create(libraryID int64, zone *models.LibraryZone) (*models.LibraryZone, error) {
+	query := `INSERT INTO library_zones (code, name, description, floor, library_id) VALUES (?, ?, ?, ?, ?)`
 
-	result, err := s.db.Exec(query, zone.Code, zone.Name, zone.Description, zone.Floor)
+	result, err := s.db.Exec(query, zone.Code, zone.Name, zone.Description, zone.Floor, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -416,25 +426,29 @@ func (s *LibraryZoneStore) Create(zone *models.LibraryZone) (*models.LibraryZone
 	}
 
 	zone.ID = id
+	zone.LibraryID = libraryID
+
 	return zone, nil
 }
 
-func (s *LibraryZoneStore) Update(id int64, zone *models.LibraryZone) (*models.LibraryZone, error) {
-	query := `UPDATE library_zones SET code = ?, name = ?, description = ?, floor = ? WHERE id = ?`
+func (s *LibraryZoneStore) Update(libraryID, id int64, zone *models.LibraryZone) (*models.LibraryZone, error) {
+	query := `UPDATE library_zones SET code = ?, name = ?, description = ?, floor = ? WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, zone.Code, zone.Name, zone.Description, zone.Floor, id)
+	_, err := s.db.Exec(query, zone.Code, zone.Name, zone.Description, zone.Floor, id, libraryID)
 	if err != nil {
 		return nil, err
 	}
 
 	zone.ID = id
+	zone.LibraryID = libraryID
+
 	return zone, nil
 }
 
-func (s *LibraryZoneStore) Delete(id int64) error {
-	query := `DELETE FROM library_zones WHERE id = ?`
+func (s *LibraryZoneStore) Delete(libraryID, id int64) error {
+	query := `DELETE FROM library_zones WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, id)
+	_, err := s.db.Exec(query, id, libraryID)
 	if err != nil {
 		return err
 	}
@@ -442,10 +456,10 @@ func (s *LibraryZoneStore) Delete(id int64) error {
 	return nil
 }
 
-func (s *ShelfStore) GetAll() ([]*models.Shelf, error) {
-	query := `SELECT id, code, zone_id, description FROM shelves ORDER BY code`
+func (s *ShelfStore) GetAll(libraryID int64) ([]*models.Shelf, error) {
+	query := `SELECT id, code, zone_id, description, library_id FROM shelves WHERE library_id = ? ORDER BY code`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -462,6 +476,7 @@ func (s *ShelfStore) GetAll() ([]*models.Shelf, error) {
 				&shelf.Code,
 				&shelf.ZoneID,
 				&shelf.Description,
+				&shelf.LibraryID,
 			)
 
 		if err != nil {
@@ -474,8 +489,8 @@ func (s *ShelfStore) GetAll() ([]*models.Shelf, error) {
 	return shelves, nil
 }
 
-func (s *ShelfStore) GetByID(id int64) (*models.Shelf, error) {
-	query := `SELECT id, code, zone_id, description FROM shelves WHERE id = ?`
+func (s *ShelfStore) GetByID(libraryID, id int64) (*models.Shelf, error) {
+	query := `SELECT id, code, zone_id, description, library_id FROM shelves WHERE id = ? AND library_id = ?`
 
 	shelf := &models.Shelf{}
 
@@ -486,6 +501,7 @@ func (s *ShelfStore) GetByID(id int64) (*models.Shelf, error) {
 			&shelf.Code,
 			&shelf.ZoneID,
 			&shelf.Description,
+			&shelf.LibraryID,
 		)
 
 	if err != nil {
@@ -495,8 +511,8 @@ func (s *ShelfStore) GetByID(id int64) (*models.Shelf, error) {
 	return shelf, nil
 }
 
-func (s *ShelfStore) GetByCode(code string) (*models.Shelf, error) {
-	query := `SELECT id, code, zone_id, description FROM shelves WHERE code = ?`
+func (s *ShelfStore) GetByCode(libraryID int64, code string) (*models.Shelf, error) {
+	query := `SELECT id, code, zone_id, description, library_id FROM shelves WHERE code = ? AND library_id = ?`
 
 	shelf := &models.Shelf{}
 
@@ -507,6 +523,7 @@ func (s *ShelfStore) GetByCode(code string) (*models.Shelf, error) {
 			&shelf.Code,
 			&shelf.ZoneID,
 			&shelf.Description,
+			&shelf.LibraryID,
 		)
 
 	if err == sql.ErrNoRows {
@@ -520,11 +537,14 @@ func (s *ShelfStore) GetByCode(code string) (*models.Shelf, error) {
 	return shelf, nil
 }
 
-func (s *ShelfStore) GetShelvesFiltered(filter ShelfFilter) ([]*models.Shelf, error) {
-	query := `SELECT id, code, zone_id, description FROM shelves`
+func (s *ShelfStore) GetShelvesFiltered(libraryID int64, filter ShelfFilter) ([]*models.Shelf, error) {
+	query := `SELECT id, code, zone_id, description, library_id FROM shelves`
 
 	var conditions []string
 	var args []any
+
+	conditions = append(conditions, "library_id = ?")
+	args = append(args, libraryID)
 
 	if filter.Code != "" {
 		conditions = append(conditions, "code = ?")
@@ -558,6 +578,7 @@ func (s *ShelfStore) GetShelvesFiltered(filter ShelfFilter) ([]*models.Shelf, er
 			&shelf.Code,
 			&shelf.ZoneID,
 			&shelf.Description,
+			&shelf.LibraryID,
 		)
 
 		if err != nil {
@@ -570,10 +591,10 @@ func (s *ShelfStore) GetShelvesFiltered(filter ShelfFilter) ([]*models.Shelf, er
 	return shelves, nil
 }
 
-func (s *ShelfStore) Create(shelf *models.Shelf) (*models.Shelf, error) {
-	query := `INSERT INTO shelves (code, zone_id, description) VALUES (?, ?, ?)`
+func (s *ShelfStore) Create(libraryID int64, shelf *models.Shelf) (*models.Shelf, error) {
+	query := `INSERT INTO shelves (code, zone_id, description, library_id) VALUES (?, ?, ?, ?)`
 
-	result, err := s.db.Exec(query, shelf.Code, shelf.ZoneID, shelf.Description)
+	result, err := s.db.Exec(query, shelf.Code, shelf.ZoneID, shelf.Description, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -584,25 +605,29 @@ func (s *ShelfStore) Create(shelf *models.Shelf) (*models.Shelf, error) {
 	}
 
 	shelf.ID = id
+	shelf.LibraryID = libraryID
+
 	return shelf, nil
 }
 
-func (s *ShelfStore) Update(id int64, shelf *models.Shelf) (*models.Shelf, error) {
-	query := `UPDATE shelves SET code = ?, zone_id = ?, description = ? WHERE id = ?`
+func (s *ShelfStore) Update(libraryID, id int64, shelf *models.Shelf) (*models.Shelf, error) {
+	query := `UPDATE shelves SET code = ?, zone_id = ?, description = ? WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, shelf.Code, shelf.ZoneID, shelf.Description, id)
+	_, err := s.db.Exec(query, shelf.Code, shelf.ZoneID, shelf.Description, id, libraryID)
 	if err != nil {
 		return nil, err
 	}
 
 	shelf.ID = id
+	shelf.LibraryID = libraryID
+
 	return shelf, nil
 }
 
-func (s *ShelfStore) Delete(id int64) error {
-	query := `DELETE FROM shelves WHERE id = ?`
+func (s *ShelfStore) Delete(libraryID, id int64) error {
+	query := `DELETE FROM shelves WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, id)
+	_, err := s.db.Exec(query, id, libraryID)
 	if err != nil {
 		return err
 	}
@@ -610,16 +635,17 @@ func (s *ShelfStore) Delete(id int64) error {
 	return nil
 }
 
-func (s *CopyStore) GetAll() ([]*models.Copy, error) {
+func (s *CopyStore) GetAll(libraryID int64) ([]*models.Copy, error) {
 	query := `
 		SELECT
 			id, code, book_id, status, condition, 
-			acquisition_date, purchase_price, notes
+			acquisition_date, purchase_price, notes, library_id
 		FROM copies 
+		WHERE library_id = ? 
 		ORDER BY code
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -639,6 +665,7 @@ func (s *CopyStore) GetAll() ([]*models.Copy, error) {
 			&copy.AcquisitionDate,
 			&copy.PurchasePrice,
 			&copy.Notes,
+			&copy.LibraryID,
 		)
 
 		if err != nil {
@@ -651,19 +678,19 @@ func (s *CopyStore) GetAll() ([]*models.Copy, error) {
 	return copies, nil
 }
 
-func (s *CopyStore) GetByID(id int64) (*models.Copy, error) {
+func (s *CopyStore) GetByID(libraryID, id int64) (*models.Copy, error) {
 	query := `
 		SELECT
 			id, code, book_id, status, condition, 
-			acquisition_date, purchase_price, notes
+			acquisition_date, purchase_price, notes, library_id 
 		FROM copies 
-		WHERE id = ?
+		WHERE id = ? AND library_id = ?
 	`
 
 	copy := &models.Copy{}
 
 	err := s.db.
-		QueryRow(query, id).
+		QueryRow(query, id, libraryID).
 		Scan(
 			&copy.ID,
 			&copy.Code,
@@ -673,6 +700,7 @@ func (s *CopyStore) GetByID(id int64) (*models.Copy, error) {
 			&copy.AcquisitionDate,
 			&copy.PurchasePrice,
 			&copy.Notes,
+			&copy.LibraryID,
 		)
 
 	if err != nil {
@@ -682,19 +710,19 @@ func (s *CopyStore) GetByID(id int64) (*models.Copy, error) {
 	return copy, nil
 }
 
-func (s *CopyStore) GetByCode(code string) (*models.Copy, error) {
+func (s *CopyStore) GetByCode(libraryID int64, code string) (*models.Copy, error) {
 	query := `
 		SELECT
 			id, code, book_id, status, condition, 
-			acquisition_date, purchase_price, notes
+			acquisition_date, purchase_price, notes, library_id 
 		FROM copies 
-		WHERE code = ?
+		WHERE code = ? AND library_id = ?
 	`
 
 	copy := &models.Copy{}
 
 	err := s.db.
-		QueryRow(query, code).
+		QueryRow(query, code, libraryID).
 		Scan(
 			&copy.ID,
 			&copy.Code,
@@ -704,6 +732,7 @@ func (s *CopyStore) GetByCode(code string) (*models.Copy, error) {
 			&copy.AcquisitionDate,
 			&copy.PurchasePrice,
 			&copy.Notes,
+			&copy.LibraryID,
 		)
 
 	if err == sql.ErrNoRows {
@@ -717,16 +746,19 @@ func (s *CopyStore) GetByCode(code string) (*models.Copy, error) {
 	return copy, nil
 }
 
-func (s *CopyStore) GetCopiesFiltered(filter CopyFilter) ([]*models.Copy, error) {
+func (s *CopyStore) GetCopiesFiltered(libraryID int64, filter CopyFilter) ([]*models.Copy, error) {
 	query := `
 		SELECT
 			id, code, book_id, status, condition, 
-			acquisition_date, purchase_price, notes
+			acquisition_date, purchase_price, notes, library_id
 		FROM copies
 	`
 
 	var conditions []string
 	var args []any
+
+	conditions = append(conditions, "library_id = ?")
+	args = append(args, libraryID)
 
 	if filter.Code != "" {
 		conditions = append(conditions, "code = ?")
@@ -764,6 +796,7 @@ func (s *CopyStore) GetCopiesFiltered(filter CopyFilter) ([]*models.Copy, error)
 
 	for rows.Next() {
 		copy := &models.Copy{}
+
 		err := rows.Scan(
 			&copy.ID,
 			&copy.Code,
@@ -773,6 +806,7 @@ func (s *CopyStore) GetCopiesFiltered(filter CopyFilter) ([]*models.Copy, error)
 			&copy.AcquisitionDate,
 			&copy.PurchasePrice,
 			&copy.Notes,
+			&copy.LibraryID,
 		)
 
 		if err != nil {
@@ -785,10 +819,10 @@ func (s *CopyStore) GetCopiesFiltered(filter CopyFilter) ([]*models.Copy, error)
 	return copies, nil
 }
 
-func (s *CopyStore) Create(copy *models.Copy) (*models.Copy, error) {
+func (s *CopyStore) Create(libraryID int64, copy *models.Copy) (*models.Copy, error) {
 	query := `
-		INSERT INTO copies (code, book_id, status, condition, acquisition_date, purchase_price, notes)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO copies (code, book_id, status, condition, acquisition_date, purchase_price, notes, library_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := s.db.Exec(
@@ -800,6 +834,7 @@ func (s *CopyStore) Create(copy *models.Copy) (*models.Copy, error) {
 		copy.AcquisitionDate,
 		copy.PurchasePrice,
 		copy.Notes,
+		libraryID,
 	)
 
 	if err != nil {
@@ -812,16 +847,18 @@ func (s *CopyStore) Create(copy *models.Copy) (*models.Copy, error) {
 	}
 
 	copy.ID = id
+	copy.LibraryID = libraryID
+
 	return copy, nil
 }
 
-func (s *CopyStore) Update(id int64, copy *models.Copy) (*models.Copy, error) {
+func (s *CopyStore) Update(libraryID, id int64, copy *models.Copy) (*models.Copy, error) {
 	query := `
 		UPDATE copies 
 		SET
 			code = ?, book_id = ?, status = ?, condition = ?, 
 			acquisition_date = ?, purchase_price = ?, notes = ?
-		WHERE id = ?
+		WHERE id = ? AND library_id = ?
 	`
 
 	_, err := s.db.Exec(
@@ -832,7 +869,9 @@ func (s *CopyStore) Update(id int64, copy *models.Copy) (*models.Copy, error) {
 		copy.Condition,
 		copy.AcquisitionDate,
 		copy.PurchasePrice,
-		copy.Notes, id,
+		copy.Notes,
+		id,
+		libraryID,
 	)
 
 	if err != nil {
@@ -840,13 +879,15 @@ func (s *CopyStore) Update(id int64, copy *models.Copy) (*models.Copy, error) {
 	}
 
 	copy.ID = id
+	copy.LibraryID = libraryID
+
 	return copy, nil
 }
 
-func (s *CopyStore) Delete(id int64) error {
-	query := `DELETE FROM copies WHERE id = ?`
+func (s *CopyStore) Delete(libraryID, id int64) error {
+	query := `DELETE FROM copies WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, id)
+	_, err := s.db.Exec(query, id, libraryID)
 	if err != nil {
 		return err
 	}

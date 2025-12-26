@@ -31,32 +31,32 @@ type FineFilter struct {
 }
 
 type ILoanStore interface {
-	GetAll() ([]*models.Loan, error)
-	GetByID(id int64) (*models.Loan, error)
-	GetByCode(code string) (*models.Loan, error)
-	GetLoansFiltered(filter LoanFilter) ([]*models.Loan, error)
-	Create(loan *models.Loan) (*models.Loan, error)
-	Update(id int64, loan *models.Loan) (*models.Loan, error)
-	Delete(id int64) error
+	GetAll(libraryID int64) ([]*models.Loan, error)
+	GetByID(libraryID, id int64) (*models.Loan, error)
+	GetByCode(libraryID int64, code string) (*models.Loan, error)
+	GetLoansFiltered(libraryID int64, filter LoanFilter) ([]*models.Loan, error)
+	Create(libraryID int64, loan *models.Loan) (*models.Loan, error)
+	Update(libraryID, id int64, loan *models.Loan) (*models.Loan, error)
+	Delete(libraryID, id int64) error
 }
 
 type IReservationStore interface {
-	GetAll() ([]*models.Reservation, error)
-	GetByID(id int64) (*models.Reservation, error)
-	GetActiveByUserAndBook(userID, bookID int64) (*models.Reservation, error)
-	GetReservationsFiltered(filter ReservationFilter) ([]*models.Reservation, error)
-	Create(reservation *models.Reservation) (*models.Reservation, error)
-	Update(id int64, reservation *models.Reservation) (*models.Reservation, error)
-	Delete(id int64) error
+	GetAll(libraryID int64) ([]*models.Reservation, error)
+	GetByID(libraryID, id int64) (*models.Reservation, error)
+	GetActiveByUserAndBook(libraryID, userID, bookID int64) (*models.Reservation, error)
+	GetReservationsFiltered(libraryID int64, filter ReservationFilter) ([]*models.Reservation, error)
+	Create(libraryID int64, reservation *models.Reservation) (*models.Reservation, error)
+	Update(libraryID, id int64, reservation *models.Reservation) (*models.Reservation, error)
+	Delete(libraryID, id int64) error
 }
 
 type IFineStore interface {
-	GetAll() ([]*models.Fine, error)
-	GetByID(id int64) (*models.Fine, error)
-	GetFinesFiltered(filter FineFilter) ([]*models.Fine, error)
-	Create(fine *models.Fine) (*models.Fine, error)
-	Update(id int64, fine *models.Fine) (*models.Fine, error)
-	Delete(id int64) error
+	GetAll(libraryID int64) ([]*models.Fine, error)
+	GetByID(libraryID, id int64) (*models.Fine, error)
+	GetFinesFiltered(libraryID int64, filter FineFilter) ([]*models.Fine, error)
+	Create(libraryID int64, fine *models.Fine) (*models.Fine, error)
+	Update(libraryID, id int64, fine *models.Fine) (*models.Fine, error)
+	Delete(libraryID, id int64) error
 }
 
 type LoanStore struct {
@@ -83,16 +83,17 @@ func NewFineStore(db *sql.DB) IFineStore {
 	return &FineStore{db: db}
 }
 
-func (s *LoanStore) GetAll() ([]*models.Loan, error) {
+func (s *LoanStore) GetAll(libraryID int64) ([]*models.Loan, error) {
 	query := `
 		SELECT
 			id, loan_code, user_id, copy_id, loan_date, due_date, 
-			return_date, status, loan_days, renewals, notes, librarian_id
+			return_date, status, loan_days, renewals, notes, librarian_id, library_id 
 		FROM loans 
+		WHERE library_id = ? 
 		ORDER BY loan_date DESC
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +117,7 @@ func (s *LoanStore) GetAll() ([]*models.Loan, error) {
 			&loan.Renewals,
 			&loan.Notes,
 			&loan.LibrarianID,
+			&loan.LibraryID,
 		)
 
 		if err != nil {
@@ -128,19 +130,19 @@ func (s *LoanStore) GetAll() ([]*models.Loan, error) {
 	return loans, nil
 }
 
-func (s *LoanStore) GetByID(id int64) (*models.Loan, error) {
+func (s *LoanStore) GetByID(libraryID, id int64) (*models.Loan, error) {
 	query := `
 		SELECT
 			id, loan_code, user_id, copy_id, loan_date, due_date, 
-			return_date, status, loan_days, renewals, notes, librarian_id
+			return_date, status, loan_days, renewals, notes, librarian_id, library_id 
 		FROM loans 
-		WHERE id = ?
+		WHERE id = ? AND library_id = ?
 	`
 
 	loan := &models.Loan{}
 
 	err := s.db.
-		QueryRow(query, id).
+		QueryRow(query, id, libraryID).
 		Scan(
 			&loan.ID,
 			&loan.LoanCode,
@@ -154,6 +156,7 @@ func (s *LoanStore) GetByID(id int64) (*models.Loan, error) {
 			&loan.Renewals,
 			&loan.Notes,
 			&loan.LibrarianID,
+			&loan.LibraryID,
 		)
 
 	if err != nil {
@@ -163,19 +166,19 @@ func (s *LoanStore) GetByID(id int64) (*models.Loan, error) {
 	return loan, nil
 }
 
-func (s *LoanStore) GetByCode(code string) (*models.Loan, error) {
+func (s *LoanStore) GetByCode(libraryID int64, code string) (*models.Loan, error) {
 	query := `
 		SELECT
 			id, loan_code, user_id, copy_id, loan_date, due_date, 
-			return_date, status, loan_days, renewals, notes, librarian_id
+			return_date, status, loan_days, renewals, notes, librarian_id, library_id 
 		FROM loans 
-		WHERE loan_code = ?
+		WHERE loan_code = ? AND library_id = ?
 	`
 
 	loan := &models.Loan{}
 
 	err := s.db.
-		QueryRow(query, code).
+		QueryRow(query, code, libraryID).
 		Scan(
 			&loan.ID,
 			&loan.LoanCode,
@@ -189,6 +192,7 @@ func (s *LoanStore) GetByCode(code string) (*models.Loan, error) {
 			&loan.Renewals,
 			&loan.Notes,
 			&loan.LibrarianID,
+			&loan.LibraryID,
 		)
 
 	if err == sql.ErrNoRows {
@@ -202,16 +206,19 @@ func (s *LoanStore) GetByCode(code string) (*models.Loan, error) {
 	return loan, nil
 }
 
-func (s *LoanStore) GetLoansFiltered(filter LoanFilter) ([]*models.Loan, error) {
+func (s *LoanStore) GetLoansFiltered(libraryID int64, filter LoanFilter) ([]*models.Loan, error) {
 	query := `
 		SELECT
 			id, loan_code, user_id, copy_id, loan_date, due_date, 
-			return_date, status, loan_days, renewals, notes, librarian_id
+			return_date, status, loan_days, renewals, notes, librarian_id, library_id 
 		FROM loans
 	`
 
 	var conditions []string
 	var args []any
+
+	conditions = append(conditions, "library_id = ?")
+	args = append(args, libraryID)
 
 	if filter.Code != "" {
 		conditions = append(conditions, "loan_code = ?")
@@ -268,6 +275,7 @@ func (s *LoanStore) GetLoansFiltered(filter LoanFilter) ([]*models.Loan, error) 
 			&loan.Renewals,
 			&loan.Notes,
 			&loan.LibrarianID,
+			&loan.LibraryID,
 		)
 
 		if err != nil {
@@ -280,17 +288,17 @@ func (s *LoanStore) GetLoansFiltered(filter LoanFilter) ([]*models.Loan, error) 
 	return loans, nil
 }
 
-func (s *LoanStore) Create(loan *models.Loan) (*models.Loan, error) {
+func (s *LoanStore) Create(libraryID int64, loan *models.Loan) (*models.Loan, error) {
 	query := `
-		INSERT INTO loans (loan_code, user_id, copy_id, loan_date, due_date, return_date, status, loan_days, renewals, notes, librarian_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO loans (loan_code, user_id, copy_id, loan_date, due_date, return_date, status, loan_days, renewals, notes, librarian_id, library_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := s.db.Exec(
 		query,
 		loan.LoanCode, loan.UserID, loan.CopyID, loan.LoanDate, loan.DueDate,
 		loan.ReturnDate, loan.Status, loan.LoanDays, loan.Renewals,
-		loan.Notes, loan.LibrarianID,
+		loan.Notes, loan.LibrarianID, libraryID,
 	)
 
 	if err != nil {
@@ -303,24 +311,26 @@ func (s *LoanStore) Create(loan *models.Loan) (*models.Loan, error) {
 	}
 
 	loan.ID = id
+	loan.LibraryID = libraryID
+
 	return loan, nil
 }
 
-func (s *LoanStore) Update(id int64, loan *models.Loan) (*models.Loan, error) {
+func (s *LoanStore) Update(libraryID, id int64, loan *models.Loan) (*models.Loan, error) {
 	query := `
 		UPDATE loans 
 		SET
 			loan_code = ?, user_id = ?, copy_id = ?, loan_date = ?, due_date = ?,
 			return_date = ?, status = ?, loan_days = ?, renewals = ?, 
 			notes = ?, librarian_id = ?
-		WHERE id = ?
+		WHERE id = ? AND library_id = ?
 	`
 
 	_, err := s.db.Exec(
 		query,
 		loan.LoanCode, loan.UserID, loan.CopyID, loan.LoanDate, loan.DueDate,
 		loan.ReturnDate, loan.Status, loan.LoanDays, loan.Renewals,
-		loan.Notes, loan.LibrarianID, id,
+		loan.Notes, loan.LibrarianID, id, libraryID,
 	)
 
 	if err != nil {
@@ -328,13 +338,15 @@ func (s *LoanStore) Update(id int64, loan *models.Loan) (*models.Loan, error) {
 	}
 
 	loan.ID = id
+	loan.LibraryID = libraryID
+
 	return loan, nil
 }
 
-func (s *LoanStore) Delete(id int64) error {
-	query := `DELETE FROM loans WHERE id = ?`
+func (s *LoanStore) Delete(libraryID, id int64) error {
+	query := `DELETE FROM loans WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, id)
+	_, err := s.db.Exec(query, id, libraryID)
 	if err != nil {
 		return err
 	}
@@ -342,16 +354,17 @@ func (s *LoanStore) Delete(id int64) error {
 	return nil
 }
 
-func (s *ReservationStore) GetAll() ([]*models.Reservation, error) {
+func (s *ReservationStore) GetAll(libraryID int64) ([]*models.Reservation, error) {
 	query := `
 		SELECT
 			id, user_id, book_id, reservation_date, expiration_date, 
-			status, priority, notified
+			status, priority, notified, library_id
 		FROM reservations 
+		WHERE library_id = ? 
 		ORDER BY reservation_date DESC
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -371,6 +384,7 @@ func (s *ReservationStore) GetAll() ([]*models.Reservation, error) {
 			&reservation.Status,
 			&reservation.Priority,
 			&reservation.Notified,
+			&reservation.LibraryID,
 		)
 
 		if err != nil {
@@ -383,19 +397,19 @@ func (s *ReservationStore) GetAll() ([]*models.Reservation, error) {
 	return reservations, nil
 }
 
-func (s *ReservationStore) GetByID(id int64) (*models.Reservation, error) {
+func (s *ReservationStore) GetByID(libraryID, id int64) (*models.Reservation, error) {
 	query := `
 		SELECT
 			id, user_id, book_id, reservation_date, expiration_date, 
-			status, priority, notified
+			status, priority, notified, library_id 
 		FROM reservations 
-		WHERE id = ?
+		WHERE id = ? AND library_id = ?
 	`
 
 	reservation := &models.Reservation{}
 
 	err := s.db.
-		QueryRow(query, id).
+		QueryRow(query, id, libraryID).
 		Scan(
 			&reservation.ID,
 			&reservation.UserID,
@@ -405,6 +419,7 @@ func (s *ReservationStore) GetByID(id int64) (*models.Reservation, error) {
 			&reservation.Status,
 			&reservation.Priority,
 			&reservation.Notified,
+			&reservation.LibraryID,
 		)
 
 	if err != nil {
@@ -414,20 +429,20 @@ func (s *ReservationStore) GetByID(id int64) (*models.Reservation, error) {
 	return reservation, nil
 }
 
-func (s *ReservationStore) GetActiveByUserAndBook(userID, bookID int64) (*models.Reservation, error) {
+func (s *ReservationStore) GetActiveByUserAndBook(libraryID, userID, bookID int64) (*models.Reservation, error) {
 	query := `
 		SELECT
 			id, user_id, book_id, reservation_date, expiration_date, 
-			status, priority, notified
+			status, priority, notified, library_id
 		FROM reservations 
-		WHERE user_id = ? AND book_id = ? AND status IN ('Pending', 'Active')
+		WHERE user_id = ? AND book_id = ? AND status IN ('Pending', 'Active') AND library_id = ?
 		LIMIT 1
 	`
 
 	reservation := &models.Reservation{}
 
 	err := s.db.
-		QueryRow(query, userID, bookID).
+		QueryRow(query, userID, bookID, libraryID).
 		Scan(
 			&reservation.ID,
 			&reservation.UserID,
@@ -437,6 +452,7 @@ func (s *ReservationStore) GetActiveByUserAndBook(userID, bookID int64) (*models
 			&reservation.Status,
 			&reservation.Priority,
 			&reservation.Notified,
+			&reservation.LibraryID,
 		)
 
 	if err == sql.ErrNoRows {
@@ -450,16 +466,19 @@ func (s *ReservationStore) GetActiveByUserAndBook(userID, bookID int64) (*models
 	return reservation, nil
 }
 
-func (s *ReservationStore) GetReservationsFiltered(filter ReservationFilter) ([]*models.Reservation, error) {
+func (s *ReservationStore) GetReservationsFiltered(libraryID int64, filter ReservationFilter) ([]*models.Reservation, error) {
 	query := `
 		SELECT
 			id, user_id, book_id, reservation_date,
-			expiration_date, status, priority, notified
-		FROM reservations
+			expiration_date, status, priority, notified, library_id
+		FROM reservations 
 	`
 
 	var conditions []string
 	var args []any
+
+	conditions = append(conditions, "library_id = ?")
+	args = append(args, libraryID)
 
 	if filter.UserID != nil {
 		conditions = append(conditions, "user_id = ?")
@@ -507,6 +526,7 @@ func (s *ReservationStore) GetReservationsFiltered(filter ReservationFilter) ([]
 			&reservation.Status,
 			&reservation.Priority,
 			&reservation.Notified,
+			&reservation.LibraryID,
 		)
 
 		if err != nil {
@@ -519,17 +539,17 @@ func (s *ReservationStore) GetReservationsFiltered(filter ReservationFilter) ([]
 	return reservations, nil
 }
 
-func (s *ReservationStore) Create(reservation *models.Reservation) (*models.Reservation, error) {
+func (s *ReservationStore) Create(libraryID int64, reservation *models.Reservation) (*models.Reservation, error) {
 	query := `
-		INSERT INTO reservations (user_id, book_id, reservation_date, expiration_date, status, priority, notified)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO reservations (user_id, book_id, reservation_date, expiration_date, status, priority, notified, library_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := s.db.Exec(
 		query,
 		reservation.UserID, reservation.BookID, reservation.ReservationDate,
 		reservation.ExpirationDate, reservation.Status, reservation.Priority,
-		reservation.Notified,
+		reservation.Notified, libraryID,
 	)
 
 	if err != nil {
@@ -542,23 +562,25 @@ func (s *ReservationStore) Create(reservation *models.Reservation) (*models.Rese
 	}
 
 	reservation.ID = id
+	reservation.LibraryID = libraryID
+
 	return reservation, nil
 }
 
-func (s *ReservationStore) Update(id int64, reservation *models.Reservation) (*models.Reservation, error) {
+func (s *ReservationStore) Update(libraryID, id int64, reservation *models.Reservation) (*models.Reservation, error) {
 	query := `
 		UPDATE reservations 
 		SET
 			user_id = ?, book_id = ?, reservation_date = ?,
 			expiration_date = ?, status = ?, priority = ?, notified = ?
-		WHERE id = ?
+		WHERE id = ? AND library_id = ?
 	`
 
 	_, err := s.db.Exec(
 		query,
 		reservation.UserID, reservation.BookID, reservation.ReservationDate,
 		reservation.ExpirationDate, reservation.Status, reservation.Priority,
-		reservation.Notified, id,
+		reservation.Notified, id, libraryID,
 	)
 
 	if err != nil {
@@ -566,13 +588,15 @@ func (s *ReservationStore) Update(id int64, reservation *models.Reservation) (*m
 	}
 
 	reservation.ID = id
+	reservation.LibraryID = libraryID
+
 	return reservation, nil
 }
 
-func (s *ReservationStore) Delete(id int64) error {
-	query := `DELETE FROM reservations WHERE id = ?`
+func (s *ReservationStore) Delete(libraryID, id int64) error {
+	query := `DELETE FROM reservations WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, id)
+	_, err := s.db.Exec(query, id, libraryID)
 	if err != nil {
 		return err
 	}
@@ -580,16 +604,17 @@ func (s *ReservationStore) Delete(id int64) error {
 	return nil
 }
 
-func (s *FineStore) GetAll() ([]*models.Fine, error) {
+func (s *FineStore) GetAll(libraryID int64) ([]*models.Fine, error) {
 	query := `
 		SELECT
 			id, user_id, loan_id, reason, amount,
-			generated_date, payment_date, status, notes
+			generated_date, payment_date, status, notes, library_id
 		FROM fines 
+		WHERE library_id = ? 
 		ORDER BY generated_date DESC
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -610,6 +635,7 @@ func (s *FineStore) GetAll() ([]*models.Fine, error) {
 			&fine.PaymentDate,
 			&fine.Status,
 			&fine.Notes,
+			&fine.LibraryID,
 		)
 
 		if err != nil {
@@ -622,19 +648,19 @@ func (s *FineStore) GetAll() ([]*models.Fine, error) {
 	return fines, nil
 }
 
-func (s *FineStore) GetByID(id int64) (*models.Fine, error) {
+func (s *FineStore) GetByID(libraryID, id int64) (*models.Fine, error) {
 	query := `
 		SELECT
 			id, user_id, loan_id, reason, amount,
-			generated_date, payment_date, status, notes
+			generated_date, payment_date, status, notes, library_id
 		FROM fines 
-		WHERE id = ?
+		WHERE id = ? AND library_id = ?
 	`
 
 	fine := &models.Fine{}
 
 	err := s.db.
-		QueryRow(query, id).
+		QueryRow(query, id, libraryID).
 		Scan(
 			&fine.ID,
 			&fine.UserID,
@@ -645,6 +671,7 @@ func (s *FineStore) GetByID(id int64) (*models.Fine, error) {
 			&fine.PaymentDate,
 			&fine.Status,
 			&fine.Notes,
+			&fine.LibraryID,
 		)
 
 	if err != nil {
@@ -654,16 +681,19 @@ func (s *FineStore) GetByID(id int64) (*models.Fine, error) {
 	return fine, nil
 }
 
-func (s *FineStore) GetFinesFiltered(filter FineFilter) ([]*models.Fine, error) {
+func (s *FineStore) GetFinesFiltered(libraryID int64, filter FineFilter) ([]*models.Fine, error) {
 	query := `
 		SELECT
 			id, user_id, loan_id, reason, amount, 
-			generated_date, payment_date, status, notes
+			generated_date, payment_date, status, notes, library_id
 		FROM fines
 	`
 
 	var conditions []string
 	var args []any
+
+	conditions = append(conditions, "library_id = ?")
+	args = append(args, libraryID)
 
 	if filter.UserID != nil {
 		conditions = append(conditions, "user_id = ?")
@@ -711,6 +741,7 @@ func (s *FineStore) GetFinesFiltered(filter FineFilter) ([]*models.Fine, error) 
 			&fine.PaymentDate,
 			&fine.Status,
 			&fine.Notes,
+			&fine.LibraryID,
 		)
 
 		if err != nil {
@@ -723,16 +754,16 @@ func (s *FineStore) GetFinesFiltered(filter FineFilter) ([]*models.Fine, error) 
 	return fines, nil
 }
 
-func (s *FineStore) Create(fine *models.Fine) (*models.Fine, error) {
+func (s *FineStore) Create(libraryID int64, fine *models.Fine) (*models.Fine, error) {
 	query := `
-		INSERT INTO fines (user_id, loan_id, reason, amount, generated_date, payment_date, status, notes)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO fines (user_id, loan_id, reason, amount, generated_date, payment_date, status, notes, library_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := s.db.Exec(
 		query,
 		fine.UserID, fine.LoanID, fine.Reason, fine.Amount, fine.GeneratedDate,
-		fine.PaymentDate, fine.Status, fine.Notes,
+		fine.PaymentDate, fine.Status, fine.Notes, libraryID,
 	)
 
 	if err != nil {
@@ -745,22 +776,24 @@ func (s *FineStore) Create(fine *models.Fine) (*models.Fine, error) {
 	}
 
 	fine.ID = id
+	fine.LibraryID = libraryID
+
 	return fine, nil
 }
 
-func (s *FineStore) Update(id int64, fine *models.Fine) (*models.Fine, error) {
+func (s *FineStore) Update(libraryID, id int64, fine *models.Fine) (*models.Fine, error) {
 	query := `
 		UPDATE fines 
 		SET 
 			user_id = ?, loan_id = ?, reason = ?, amount = ?, 
 			generated_date = ?, payment_date = ?, status = ?, notes = ?
-		WHERE id = ?
+		WHERE id = ? AND library_id = ?
 	`
 
 	_, err := s.db.Exec(
 		query,
 		fine.UserID, fine.LoanID, fine.Reason, fine.Amount, fine.GeneratedDate,
-		fine.PaymentDate, fine.Status, fine.Notes, id,
+		fine.PaymentDate, fine.Status, fine.Notes, id, libraryID,
 	)
 
 	if err != nil {
@@ -768,13 +801,15 @@ func (s *FineStore) Update(id int64, fine *models.Fine) (*models.Fine, error) {
 	}
 
 	fine.ID = id
+	fine.LibraryID = libraryID
+
 	return fine, nil
 }
 
-func (s *FineStore) Delete(id int64) error {
-	query := `DELETE FROM fines WHERE id = ?`
+func (s *FineStore) Delete(libraryID, id int64) error {
+	query := `DELETE FROM fines WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, id)
+	_, err := s.db.Exec(query, id, libraryID)
 	if err != nil {
 		return err
 	}

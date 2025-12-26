@@ -16,22 +16,22 @@ type BookFilter struct {
 }
 
 type IBookStore interface {
-	GetAll() ([]*models.Book, error)
-	GetByID(id int64) (*models.Book, error)
-	GetByISBN(isbn string) (*models.Book, error)
-	GetBooksFiltered(filter BookFilter) ([]*models.Book, error)
-	Create(book *models.Book) (*models.Book, error)
-	Update(id int64, book *models.Book) (*models.Book, error)
-	Delete(id int64) error
+	GetAll(libraryID int64) ([]*models.Book, error)
+	GetByID(libraryID, id int64) (*models.Book, error)
+	GetByISBN(libraryID int64, isbn string) (*models.Book, error)
+	GetBooksFiltered(libraryID int64, filter BookFilter) ([]*models.Book, error)
+	Create(libraryID int64, book *models.Book) (*models.Book, error)
+	Update(libraryID, id int64, book *models.Book) (*models.Book, error)
+	Delete(libraryID, id int64) error
 
-	GetBookAuthors(bookID int64) ([]*models.Author, error)
-	AddAuthorToBook(bookAuthor *models.BookAuthor) error
-	RemoveAuthorFromBook(bookID, authorID int64) error
-	UpdateAuthorPosition(bookID, authorID int64, position int) error
+	GetBookAuthors(libraryID, bookID int64) ([]*models.Author, error)
+	AddAuthorToBook(libraryID int64, bookAuthor *models.BookAuthor) error
+	RemoveAuthorFromBook(libraryID, bookID, authorID int64) error
+	UpdateAuthorPosition(libraryID, bookID, authorID int64, position int) error
 
-	GetBookCategories(bookID int64) ([]*models.Category, error)
-	AddCategoryToBook(bookCategory *models.BookCategory) error
-	RemoveCategoryFromBook(bookID, categoryID int64) error
+	GetBookCategories(libraryID, bookID int64) ([]*models.Category, error)
+	AddCategoryToBook(libraryID int64, bookCategory *models.BookCategory) error
+	RemoveCategoryFromBook(libraryID, bookID, categoryID int64) error
 }
 
 type BookStore struct {
@@ -44,17 +44,18 @@ func NewBookStore(db *sql.DB) IBookStore {
 	}
 }
 
-func (s *BookStore) GetAll() ([]*models.Book, error) {
+func (s *BookStore) GetAll(libraryID int64) ([]*models.Book, error) {
 	query := `
 		SELECT
 			id, isbn, title, subtitle, edition, language, 
 			publication_year, pages, synopsis, publisher_id, 
-			shelf_id, status, registration_date
+			shelf_id, status, registration_date, library_id
 		FROM books
+		WHERE library_id = ?
 		ORDER BY title
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +80,7 @@ func (s *BookStore) GetAll() ([]*models.Book, error) {
 			&book.ShelfID,
 			&book.Status,
 			&book.RegistrationDate,
+			&book.LibraryID,
 		)
 
 		if err != nil {
@@ -91,20 +93,20 @@ func (s *BookStore) GetAll() ([]*models.Book, error) {
 	return books, nil
 }
 
-func (s *BookStore) GetByID(id int64) (*models.Book, error) {
+func (s *BookStore) GetByID(libraryID, id int64) (*models.Book, error) {
 	query := `
 		SELECT
 			id, isbn, title, subtitle, edition, language, 
 			publication_year, pages, synopsis, publisher_id, 
-			shelf_id, status, registration_date
+			shelf_id, status, registration_date, library_id
 		FROM books 
-		WHERE id = ?
+		WHERE id = ? AND library_id = ?
 	`
 
 	book := &models.Book{}
 
 	err := s.db.
-		QueryRow(query, id).
+		QueryRow(query, id, libraryID).
 		Scan(
 			&book.ID,
 			&book.ISBN,
@@ -119,6 +121,7 @@ func (s *BookStore) GetByID(id int64) (*models.Book, error) {
 			&book.ShelfID,
 			&book.Status,
 			&book.RegistrationDate,
+			&book.LibraryID,
 		)
 
 	if err != nil {
@@ -128,20 +131,20 @@ func (s *BookStore) GetByID(id int64) (*models.Book, error) {
 	return book, nil
 }
 
-func (s *BookStore) GetByISBN(isbn string) (*models.Book, error) {
+func (s *BookStore) GetByISBN(libraryID int64, isbn string) (*models.Book, error) {
 	query := `
 		SELECT
 			id, isbn, title, subtitle, edition, language, 
 			publication_year, pages, synopsis, publisher_id, 
-			shelf_id, status, registration_date
+			shelf_id, status, registration_date, library_id
 		FROM books 
-		WHERE isbn = ?
+		WHERE isbn = ? AND library_id = ?
 	`
 
 	book := &models.Book{}
 
 	err := s.db.
-		QueryRow(query, isbn).
+		QueryRow(query, isbn, libraryID).
 		Scan(
 			&book.ID,
 			&book.ISBN,
@@ -156,6 +159,7 @@ func (s *BookStore) GetByISBN(isbn string) (*models.Book, error) {
 			&book.ShelfID,
 			&book.Status,
 			&book.RegistrationDate,
+			&book.LibraryID,
 		)
 
 	if err == sql.ErrNoRows {
@@ -169,12 +173,12 @@ func (s *BookStore) GetByISBN(isbn string) (*models.Book, error) {
 	return book, nil
 }
 
-func (s *BookStore) GetBooksFiltered(filter BookFilter) ([]*models.Book, error) {
+func (s *BookStore) GetBooksFiltered(libraryID int64, filter BookFilter) ([]*models.Book, error) {
 	query := `
 		SELECT DISTINCT
 			b.id, b.isbn, b.title, b.subtitle, b.edition, b.language, 
 			b.publication_year, b.pages, b.synopsis, b.publisher_id, 
-			b.shelf_id, b.status, b.registration_date
+			b.shelf_id, b.status, b.registration_date, b.library_id
 		FROM books b
 	`
 
@@ -194,6 +198,9 @@ func (s *BookStore) GetBooksFiltered(filter BookFilter) ([]*models.Book, error) 
 
 	var conditions []string
 	var args []any
+
+	conditions = append(conditions, "b.library_id = ?")
+	args = append(args, libraryID)
 
 	if filter.ISBN != "" {
 		conditions = append(conditions, "b.isbn = ?")
@@ -246,6 +253,7 @@ func (s *BookStore) GetBooksFiltered(filter BookFilter) ([]*models.Book, error) 
 			&book.ShelfID,
 			&book.Status,
 			&book.RegistrationDate,
+			&book.LibraryID,
 		)
 
 		if err != nil {
@@ -258,13 +266,13 @@ func (s *BookStore) GetBooksFiltered(filter BookFilter) ([]*models.Book, error) 
 	return books, nil
 }
 
-func (s *BookStore) Create(book *models.Book) (*models.Book, error) {
+func (s *BookStore) Create(libraryID int64, book *models.Book) (*models.Book, error) {
 	query := `
 		INSERT INTO books (
 			isbn, title, subtitle, edition, language, 
 			publication_year, pages, synopsis, publisher_id, 
-			shelf_id, status, registration_date
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			shelf_id, status, registration_date, library_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := s.db.Exec(
@@ -281,6 +289,7 @@ func (s *BookStore) Create(book *models.Book) (*models.Book, error) {
 		book.ShelfID,
 		book.Status,
 		book.RegistrationDate,
+		libraryID,
 	)
 
 	if err != nil {
@@ -293,17 +302,19 @@ func (s *BookStore) Create(book *models.Book) (*models.Book, error) {
 	}
 
 	book.ID = id
+	book.LibraryID = libraryID
+
 	return book, nil
 }
 
-func (s *BookStore) Update(id int64, book *models.Book) (*models.Book, error) {
+func (s *BookStore) Update(libraryID, id int64, book *models.Book) (*models.Book, error) {
 	query := `
 		UPDATE books 
 		SET
 			isbn = ?, title = ?, subtitle = ?, edition = ?, language = ?,
 			publication_year = ?, pages = ?, synopsis = ?, publisher_id = ?,
 			shelf_id = ?, status = ?
-		WHERE id = ?
+		WHERE id = ? AND library_id = ?
 	`
 
 	_, err := s.db.Exec(
@@ -320,6 +331,7 @@ func (s *BookStore) Update(id int64, book *models.Book) (*models.Book, error) {
 		book.ShelfID,
 		book.Status,
 		id,
+		libraryID,
 	)
 
 	if err != nil {
@@ -327,10 +339,12 @@ func (s *BookStore) Update(id int64, book *models.Book) (*models.Book, error) {
 	}
 
 	book.ID = id
+	book.LibraryID = libraryID
+	
 	return book, nil
 }
 
-func (s *BookStore) Delete(id int64) error {
+func (s *BookStore) Delete(libraryID, id int64) error {
 	_, err := s.db.Exec("DELETE FROM book_authors WHERE book_id = ?", id)
 	if err != nil {
 		return err
@@ -341,7 +355,7 @@ func (s *BookStore) Delete(id int64) error {
 		return err
 	}
 
-	_, err = s.db.Exec("DELETE FROM books WHERE id = ?", id)
+	_, err = s.db.Exec("DELETE FROM books WHERE id = ? AND library_id = ?", id, libraryID)
 	if err != nil {
 		return err
 	}
@@ -349,16 +363,16 @@ func (s *BookStore) Delete(id int64) error {
 	return nil
 }
 
-func (s *BookStore) GetBookAuthors(bookID int64) ([]*models.Author, error) {
+func (s *BookStore) GetBookAuthors(libraryID, bookID int64) ([]*models.Author, error) {
 	query := `
-		SELECT a.id, a.first_name, a.last_name, a.biography, a.nationality
+		SELECT a.id, a.first_name, a.last_name, a.biography, a.nationality, a.library_id
 		FROM authors a
 		INNER JOIN book_authors ba ON a.id = ba.author_id
-		WHERE ba.book_id = ?
+		WHERE ba.book_id = ? AND a.library_id = ?
 		ORDER BY ba.position
 	`
 
-	rows, err := s.db.Query(query, bookID)
+	rows, err := s.db.Query(query, bookID, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -375,6 +389,7 @@ func (s *BookStore) GetBookAuthors(bookID int64) ([]*models.Author, error) {
 			&author.LastName,
 			&author.Biography,
 			&author.Nationality,
+			&author.LibraryID,
 		)
 
 		if err != nil {
@@ -387,7 +402,7 @@ func (s *BookStore) GetBookAuthors(bookID int64) ([]*models.Author, error) {
 	return authors, nil
 }
 
-func (s *BookStore) AddAuthorToBook(bookAuthor *models.BookAuthor) error {
+func (s *BookStore) AddAuthorToBook(libraryID int64, bookAuthor *models.BookAuthor) error {
 	query := `SELECT COUNT(*) FROM book_authors WHERE book_id = ? AND author_id = ?`
 
 	var count int
@@ -416,7 +431,7 @@ func (s *BookStore) AddAuthorToBook(bookAuthor *models.BookAuthor) error {
 	return nil
 }
 
-func (s *BookStore) RemoveAuthorFromBook(bookID, authorID int64) error {
+func (s *BookStore) RemoveAuthorFromBook(libraryID, bookID, authorID int64) error {
 	query := `DELETE FROM book_authors WHERE book_id = ? AND author_id = ?`
 
 	result, err := s.db.Exec(query, bookID, authorID)
@@ -436,7 +451,7 @@ func (s *BookStore) RemoveAuthorFromBook(bookID, authorID int64) error {
 	return nil
 }
 
-func (s *BookStore) UpdateAuthorPosition(bookID, authorID int64, position int) error {
+func (s *BookStore) UpdateAuthorPosition(libraryID, bookID, authorID int64, position int) error {
 	query := `UPDATE book_authors SET position = ? WHERE book_id = ? AND author_id = ?`
 
 	result, err := s.db.Exec(query, position, bookID, authorID)
@@ -456,16 +471,16 @@ func (s *BookStore) UpdateAuthorPosition(bookID, authorID int64, position int) e
 	return nil
 }
 
-func (s *BookStore) GetBookCategories(bookID int64) ([]*models.Category, error) {
+func (s *BookStore) GetBookCategories(libraryID, bookID int64) ([]*models.Category, error) {
 	query := `
-		SELECT c.id, c.name, c.description
+		SELECT c.id, c.name, c.description, c.library_id
 		FROM categories c
 		INNER JOIN book_categories bc ON c.id = bc.category_id
-		WHERE bc.book_id = ?
+		WHERE bc.book_id = ? AND c.library_id = ?
 		ORDER BY c.name
 	`
 
-	rows, err := s.db.Query(query, bookID)
+	rows, err := s.db.Query(query, bookID, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -480,6 +495,7 @@ func (s *BookStore) GetBookCategories(bookID int64) ([]*models.Category, error) 
 			&category.ID,
 			&category.Name,
 			&category.Description,
+			&category.LibraryID,
 		)
 
 		if err != nil {
@@ -492,7 +508,7 @@ func (s *BookStore) GetBookCategories(bookID int64) ([]*models.Category, error) 
 	return categories, nil
 }
 
-func (s *BookStore) AddCategoryToBook(bookCategory *models.BookCategory) error {
+func (s *BookStore) AddCategoryToBook(libraryID int64, bookCategory *models.BookCategory) error {
 	query := `SELECT COUNT(*) FROM book_categories WHERE book_id = ? AND category_id = ?`
 
 	var count int
@@ -520,7 +536,7 @@ func (s *BookStore) AddCategoryToBook(bookCategory *models.BookCategory) error {
 	return nil
 }
 
-func (s *BookStore) RemoveCategoryFromBook(bookID, categoryID int64) error {
+func (s *BookStore) RemoveCategoryFromBook(libraryID, bookID, categoryID int64) error {
 	query := `DELETE FROM book_categories WHERE book_id = ? AND category_id = ?`
 
 	result, err := s.db.Exec(query, bookID, categoryID)

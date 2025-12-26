@@ -7,11 +7,11 @@ import (
 )
 
 type ICategoryStore interface {
-	GetAll() ([]*models.Category, error)
-	GetByID(id int64) (*models.Category, error)
-	Create(category *models.Category) (*models.Category, error)
-	Update(id int64, category *models.Category) (*models.Category, error)
-	Delete(id int64) error
+	GetAll(libraryID int64) ([]*models.Category, error)
+	GetByID(libraryID, id int64) (*models.Category, error)
+	Create(libraryID int64, category *models.Category) (*models.Category, error)
+	Update(libraryID, id int64, category *models.Category) (*models.Category, error)
+	Delete(libraryID, id int64) error
 }
 
 type CategoryStore struct {
@@ -24,10 +24,10 @@ func NewCategoryStore(db *sql.DB) ICategoryStore {
 	}
 }
 
-func (s *CategoryStore) GetAll() ([]*models.Category, error) {
-	query := `SELECT id, name, description FROM categories`
+func (s *CategoryStore) GetAll(libraryID int64) ([]*models.Category, error) {
+	query := `SELECT id, name, description, library_id FROM categories WHERE library_id = ?`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +42,7 @@ func (s *CategoryStore) GetAll() ([]*models.Category, error) {
 			&category.ID,
 			&category.Name,
 			&category.Description,
+			&category.LibraryID,
 		)
 
 		if err != nil {
@@ -54,17 +55,18 @@ func (s *CategoryStore) GetAll() ([]*models.Category, error) {
 	return categories, nil
 }
 
-func (s *CategoryStore) GetByID(id int64) (*models.Category, error) {
-	query := `SELECT id, name, description FROM categories WHERE id = ?`
+func (s *CategoryStore) GetByID(libraryID, id int64) (*models.Category, error) {
+	query := `SELECT id, name, description, library_id FROM categories WHERE id = ? AND library_id = ?`
 
 	var category = &models.Category{}
 
 	err := s.db.
-		QueryRow(query, id).
+		QueryRow(query, id, libraryID).
 		Scan(
 			&category.ID,
 			&category.Name,
 			&category.Description,
+			&category.LibraryID,
 		)
 
 	if err != nil {
@@ -74,10 +76,10 @@ func (s *CategoryStore) GetByID(id int64) (*models.Category, error) {
 	return category, nil
 }
 
-func (s *CategoryStore) Create(category *models.Category) (*models.Category, error) {
-	query := `INSERT INTO categories (name, description) VALUES (?, ?)`
+func (s *CategoryStore) Create(libraryID int64, category *models.Category) (*models.Category, error) {
+	query := `INSERT INTO categories (name, description, library_id) VALUES (?, ?, ?)`
 
-	result, err := s.db.Exec(query, category.Name, category.Description)
+	result, err := s.db.Exec(query, category.Name, category.Description, libraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -88,25 +90,29 @@ func (s *CategoryStore) Create(category *models.Category) (*models.Category, err
 	}
 
 	category.ID = id
+	category.LibraryID = libraryID
+
 	return category, nil
 }
 
-func (s *CategoryStore) Update(id int64, category *models.Category) (*models.Category, error) {
-	query := `UPDATE categories SET name = ?, description = ? WHERE id = ?`
+func (s *CategoryStore) Update(libraryID, id int64, category *models.Category) (*models.Category, error) {
+	query := `UPDATE categories SET name = ?, description = ? WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, category.Name, category.Description, id)
+	_, err := s.db.Exec(query, category.Name, category.Description, id, libraryID)
 	if err != nil {
 		return nil, err
 	}
 
 	category.ID = id
+	category.LibraryID = libraryID
+	
 	return category, nil
 }
 
-func (s *CategoryStore) Delete(id int64) error {
-	query := `DELETE FROM categories WHERE id = ?`
+func (s *CategoryStore) Delete(libraryID, id int64) error {
+	query := `DELETE FROM categories WHERE id = ? AND library_id = ?`
 
-	_, err := s.db.Exec(query, id)
+	_, err := s.db.Exec(query, id, libraryID)
 	if err != nil {
 		return err
 	}
